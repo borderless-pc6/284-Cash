@@ -4,7 +4,8 @@ import { useState } from 'react';
 
 export default function App() {
   const [searchText, setSearchText] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [currentScreen, setCurrentScreen] = useState('home');
 
   const handleLogout = () => {
     Alert.alert(
@@ -44,11 +45,176 @@ export default function App() {
   ];
 
   const bottomNavItems = [
-    { name: 'Início', icon: '🏠', active: true },
-    { name: 'Ranking', icon: '📊', active: false },
-    { name: 'Comparar', icon: '🔍', active: false },
-    { name: 'Carteira', icon: '💰', active: false },
-    { name: 'Perfil', icon: '👤', active: false },
+    { name: 'Início', icon: '🏠', active: currentScreen === 'home', screen: 'home' },
+    { name: 'Ranking', icon: '📊', active: currentScreen === 'ranking', screen: 'ranking' },
+    { name: 'Comparar', icon: '🔍', active: currentScreen === 'compare', screen: 'compare' },
+    { name: 'Carteira', icon: '💰', active: false, screen: 'wallet' },
+    { name: 'Perfil', icon: '👤', active: false, screen: 'profile' },
+  ];
+
+  // Dados para filtro "Mais Vendas"
+  const salesRankingStores = [
+    {
+      id: 1,
+      name: 'TechWorld',
+      category: 'Eletrônicos',
+      sales: 1247,
+      rating: 4.9,
+      cashback: '10%',
+      logo: '⚡',
+      logoBg: '#4CAF50',
+      position: 1,
+      isTop3: true,
+    },
+    {
+      id: 2,
+      name: 'Boutique Elegance',
+      category: 'Vestuário',
+      sales: 1189,
+      rating: 4.8,
+      cashback: '15%',
+      logo: '👔',
+      logoBg: '#9E9E9E',
+      position: 2,
+      isTop3: true,
+    },
+    {
+      id: 3,
+      name: 'Restaurante Sabor',
+      category: 'Alimentação',
+      sales: 1056,
+      rating: 4.7,
+      cashback: '12%',
+      logo: '🍽️',
+      logoBg: '#8D6E63',
+      position: 3,
+      isTop3: true,
+    },
+    {
+      id: 4,
+      name: 'Farmácia Saúde+',
+      category: 'Farmácia',
+      sales: 987,
+      rating: 4.7,
+      cashback: '8%',
+      logo: '💊',
+      logoBg: '#4CAF50',
+      position: 4,
+      isTop3: false,
+    },
+    {
+      id: 5,
+      name: 'Academia FitLife',
+      category: 'Academia',
+      sales: 876,
+      rating: 4.6,
+      cashback: '20%',
+      logo: '💪',
+      logoBg: '#2196F3',
+      position: 5,
+      isTop3: false,
+    },
+  ];
+
+  // Dados para filtro "Maior Cashback" (ordenado por cashback)
+  const cashbackRankingStores = [
+    {
+      id: 5,
+      name: 'Academia FitLife',
+      category: 'Academia',
+      sales: 876,
+      rating: 4.6,
+      cashback: '20%',
+      logo: '💪',
+      logoBg: '#2196F3',
+      position: 1,
+      isTop3: true,
+    },
+    {
+      id: 2,
+      name: 'Boutique Elegance',
+      category: 'Vestuário',
+      sales: 1189,
+      rating: 4.8,
+      cashback: '15%',
+      logo: '👔',
+      logoBg: '#9E9E9E',
+      position: 2,
+      isTop3: true,
+    },
+    {
+      id: 3,
+      name: 'Restaurante Sabor',
+      category: 'Alimentação',
+      sales: 1056,
+      rating: 4.7,
+      cashback: '12%',
+      logo: '🍽️',
+      logoBg: '#8D6E63',
+      position: 3,
+      isTop3: true,
+    },
+    {
+      id: 1,
+      name: 'TechWorld',
+      category: 'Eletrônicos',
+      sales: 1247,
+      rating: 4.9,
+      cashback: '10%',
+      logo: '⚡',
+      logoBg: '#4CAF50',
+      position: 4,
+      isTop3: false,
+    },
+    {
+      id: 4,
+      name: 'Farmácia Saúde+',
+      category: 'Farmácia',
+      sales: 987,
+      rating: 4.7,
+      cashback: '8%',
+      logo: '💊',
+      logoBg: '#4CAF50',
+      position: 5,
+      isTop3: false,
+    },
+  ];
+
+  // Dados para comparação de preços
+  const compareResults = [
+    {
+      id: 1,
+      storeName: 'TechWorld',
+      distance: '1.2 km',
+      rating: 4.9,
+      cashback: '10%',
+      originalPrice: 7299.00,
+      cashbackAmount: 729.90,
+      finalPrice: 6569.10,
+      isBestOffer: true,
+    },
+    {
+      id: 2,
+      storeName: 'Eletrônicos Premium',
+      distance: '2.5 km',
+      rating: 4.7,
+      cashback: '8%',
+      originalPrice: 7499.00,
+      cashbackAmount: 599.92,
+      finalPrice: 6899.08,
+      isBestOffer: false,
+    },
+    {
+      id: 3,
+      storeName: 'MegaStore Tech',
+      distance: '3.1 km',
+      rating: 4.8,
+      cashback: '5%',
+      originalPrice: 7599.00,
+      cashbackAmount: 379.95,
+      finalPrice: 7219.05,
+      isBestOffer: false,
+    },
   ];
 
   const featuredStores = [
@@ -189,6 +355,338 @@ export default function App() {
     );
   };
 
+  // Componente da Tela de Ranking
+  const RankingScreen = () => {
+    const [selectedTab, setSelectedTab] = useState('sales');
+
+    // Selecionar dados baseado no filtro ativo
+    const currentRankingStores = selectedTab === 'sales' ? salesRankingStores : cashbackRankingStores;
+    const top3Stores = currentRankingStores.filter(store => store.isTop3);
+
+    // Título dinâmico baseado no filtro
+    const getTop3Title = () => {
+      return selectedTab === 'sales' ? 'Top 3 do Mês' : 'Top 3 Cashback';
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.rankingHeader}>
+          <View style={styles.rankingHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.rankingHeaderContent}>
+              <Text style={styles.rankingTitle}>Rankings</Text>
+              <Text style={styles.rankingSubtitle}>Descubra as lojas mais populares e com melhores cashbacks</Text>
+            </View>
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.rankingTabs}>
+            <TouchableOpacity
+              style={[styles.rankingTab, selectedTab === 'sales' && styles.rankingTabActive]}
+              onPress={() => setSelectedTab('sales')}
+            >
+              <Text style={[styles.rankingTabText, selectedTab === 'sales' && styles.rankingTabTextActive]}>
+                Mais Vendas
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.rankingTab, selectedTab === 'cashback' && styles.rankingTabActive]}
+              onPress={() => setSelectedTab('cashback')}
+            >
+              <Text style={[styles.rankingTabText, selectedTab === 'cashback' && styles.rankingTabTextActive]}>
+                Maior Cashback
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.rankingContent} showsVerticalScrollIndicator={false}>
+          {/* Top 3 Section */}
+          <View style={styles.top3Section}>
+            <View style={styles.top3Header}>
+              <Text style={styles.top3Icon}>👑</Text>
+              <Text style={styles.top3Title}>{getTop3Title()}</Text>
+            </View>
+
+            <View style={styles.top3Container}>
+              {/* 2nd Place */}
+              <View style={styles.top3Item}>
+                <View style={styles.top3Medal}>
+                  <Text style={styles.top3MedalIcon}>🥈</Text>
+                </View>
+                <View style={[styles.top3Logo, { backgroundColor: top3Stores[1].logoBg }]}>
+                  <Text style={styles.top3LogoIcon}>{top3Stores[1].logo}</Text>
+                </View>
+                <Text style={styles.top3StoreName}>{top3Stores[1].name}</Text>
+                <Text style={styles.top3Sales}>
+                  {selectedTab === 'sales' ? `${top3Stores[1].sales} vendas` : `${top3Stores[1].cashback} cashback`}
+                </Text>
+              </View>
+
+              {/* 1st Place */}
+              <View style={styles.top3Item}>
+                <View style={styles.top3Crown}>
+                  <Text style={styles.top3CrownIcon}>👑</Text>
+                </View>
+                <View style={[styles.top3Logo, styles.top3LogoFirst, { backgroundColor: top3Stores[0].logoBg }]}>
+                  <Text style={styles.top3LogoIcon}>{top3Stores[0].logo}</Text>
+                </View>
+                <View style={styles.top3Badge}>
+                  <Text style={styles.top3BadgeText}>
+                    {selectedTab === 'sales' ? 'Loja do Mês' : 'Melhor Cashback'}
+                  </Text>
+                </View>
+                <Text style={styles.top3StoreName}>{top3Stores[0].name}</Text>
+                <Text style={styles.top3Sales}>
+                  {selectedTab === 'sales' ? `${top3Stores[0].sales} vendas` : `${top3Stores[0].cashback} cashback`}
+                </Text>
+              </View>
+
+              {/* 3rd Place */}
+              <View style={styles.top3Item}>
+                <View style={styles.top3Medal}>
+                  <Text style={styles.top3MedalIcon}>🥉</Text>
+                </View>
+                <View style={[styles.top3Logo, { backgroundColor: top3Stores[2].logoBg }]}>
+                  <Text style={styles.top3LogoIcon}>{top3Stores[2].logo}</Text>
+                </View>
+                <Text style={styles.top3StoreName}>{top3Stores[2].name}</Text>
+                <Text style={styles.top3Sales}>
+                  {selectedTab === 'sales' ? `${top3Stores[2].sales} vendas` : `${top3Stores[2].cashback} cashback`}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Ranking List */}
+          <View style={styles.rankingList}>
+            {currentRankingStores.map((store) => (
+              <TouchableOpacity key={store.id} style={styles.rankingItem}>
+                <View style={styles.rankingItemLeft}>
+                  {store.position <= 3 ? (
+                    store.position === 1 ? (
+                      <Text style={styles.rankingCrownIcon}>👑</Text>
+                    ) : store.position === 2 ? (
+                      <Text style={styles.rankingMedalIcon}>🥈</Text>
+                    ) : (
+                      <Text style={styles.rankingMedalIcon}>🥉</Text>
+                    )
+                  ) : (
+                    <Text style={styles.rankingPosition}>#{store.position}</Text>
+                  )}
+
+                  <View style={[styles.rankingItemLogo, { backgroundColor: store.logoBg }]}>
+                    <Text style={styles.rankingItemLogoIcon}>{store.logo}</Text>
+                  </View>
+
+                  <View style={styles.rankingItemInfo}>
+                    <Text style={styles.rankingItemName}>{store.name}</Text>
+                    <Text style={styles.rankingItemCategory}>{store.category}</Text>
+                    <Text style={styles.rankingItemSales}>
+                      {selectedTab === 'sales' ? `${store.sales} vendas` : `${store.cashback} cashback`}
+                    </Text>
+                    <View style={styles.rankingItemRating}>
+                      <Text style={styles.rankingItemRatingText}>{store.rating}</Text>
+                      <Text style={styles.rankingStarIcon}>⭐</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.rankingCashback}>
+                  <Text style={styles.rankingCashbackPercent}>
+                    {selectedTab === 'sales' ? store.cashback : `${store.sales}`}
+                  </Text>
+                  <Text style={styles.rankingCashbackText}>
+                    {selectedTab === 'sales' ? 'cashback' : 'vendas'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => setCurrentScreen(item.screen)}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Comparar Preços
+  const CompareScreen = () => {
+    const [searchText, setSearchText] = useState('');
+    const [searchedProduct, setSearchedProduct] = useState('iPhone 15 Pro 256GB');
+
+    const handleSearch = () => {
+      if (searchText.trim()) {
+        setSearchedProduct(searchText);
+      }
+    };
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.compareHeader}>
+          <View style={styles.compareHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.compareHeaderContent}>
+              <Text style={styles.compareTitle}>Comparar Preços</Text>
+              <Text style={styles.compareSubtitle}>Use IA para encontrar o melhor preço com cashback</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.compareContent} showsVerticalScrollIndicator={false}>
+          {/* Search Section */}
+          <View style={styles.searchSection}>
+            <View style={styles.searchBar}>
+              <Text style={styles.compareSearchIcon}>🔍</Text>
+              <TextInput
+                style={styles.compareSearchInput}
+                placeholder="Digite o nome do produto..."
+                placeholderTextColor="#9CA3AF"
+                value={searchText}
+                onChangeText={setSearchText}
+                onSubmitEditing={handleSearch}
+              />
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionButtonIcon}>📷</Text>
+                <Text style={styles.actionButtonText}>Tirar Foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Text style={styles.actionButtonIcon}>📤</Text>
+                <Text style={styles.actionButtonText}>Upload</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* AI Smart Search Box */}
+            <View style={styles.aiSearchBox}>
+              <Text style={styles.aiSearchIcon}>✨</Text>
+              <View style={styles.aiSearchContent}>
+                <Text style={styles.aiSearchTitle}>Busca Inteligente com IA</Text>
+                <Text style={styles.aiSearchDescription}>
+                  Tire uma foto ou faça upload de um print do produto. Nossa IA encontra as melhores ofertas para você!
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Results Section */}
+          {searchedProduct && (
+            <View style={styles.resultsSection}>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsTitle}>Resultados para:</Text>
+                <Text style={styles.resultsProduct}>{searchedProduct}</Text>
+              </View>
+
+              {/* Store Cards */}
+              {compareResults.map((result) => (
+                <View key={result.id} style={styles.compareCard}>
+                  {/* Card Header */}
+                  <View style={styles.compareCardHeader}>
+                    {result.isBestOffer && (
+                      <View style={styles.bestOfferBadge}>
+                        <Text style={styles.bestOfferText}>Melhor Oferta</Text>
+                      </View>
+                    )}
+                    <View style={styles.compareCardHeaderRight}>
+                      <Text style={styles.compareCashbackBadge}>{result.cashback} cashback</Text>
+                    </View>
+                  </View>
+
+                  {/* Store Info */}
+                  <View style={styles.compareStoreInfo}>
+                    <Text style={styles.compareStoreName}>{result.storeName}</Text>
+                    <Text style={styles.compareStoreDetails}>
+                      {result.distance} ⭐ {result.rating}
+                    </Text>
+                  </View>
+
+                  {/* Price Details */}
+                  <View style={styles.priceDetails}>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>Preço original:</Text>
+                      <Text style={styles.priceValue}>{formatPrice(result.originalPrice)}</Text>
+                    </View>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>Cashback:</Text>
+                      <Text style={styles.cashbackValue}>-{formatPrice(result.cashbackAmount)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Separator */}
+                  <View style={styles.priceSeparator} />
+
+                  {/* Final Price */}
+                  <View style={styles.finalPriceRow}>
+                    <Text style={styles.finalPriceLabel}>Preço final:</Text>
+                    <Text style={styles.finalPriceValue}>{formatPrice(result.finalPrice)}</Text>
+                  </View>
+
+                  {/* Action Button */}
+                  <TouchableOpacity style={styles.viewStoreButton}>
+                    <Text style={styles.viewStoreButtonText}>Ver na Loja</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => setCurrentScreen(item.screen)}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Componente da Tela Home
   const HomeScreen = () => (
     <View style={styles.container}>
@@ -258,7 +756,7 @@ export default function App() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Lojas em Destaque</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => setCurrentScreen('ranking')}>
               <Text style={styles.seeRankingLink}>Ver ranking</Text>
             </TouchableOpacity>
           </View>
@@ -304,7 +802,11 @@ export default function App() {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         {bottomNavItems.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.navItem}>
+          <TouchableOpacity
+            key={index}
+            style={styles.navItem}
+            onPress={() => setCurrentScreen(item.screen)}
+          >
             <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
               {item.icon}
             </Text>
@@ -317,8 +819,20 @@ export default function App() {
     </View>
   );
 
-  // Renderizar a tela baseada no estado de login
-  return isLoggedIn ? <HomeScreen /> : <LoginScreen />;
+  // Renderizar a tela baseada no estado de login e tela atual
+  if (!isLoggedIn) {
+    return <LoginScreen />;
+  }
+
+  if (currentScreen === 'ranking') {
+    return <RankingScreen />;
+  }
+
+  if (currentScreen === 'compare') {
+    return <CompareScreen />;
+  }
+
+  return <HomeScreen />;
 }
 
 const styles = StyleSheet.create({
@@ -780,5 +1294,467 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     fontWeight: '500',
+  },
+  // Ranking Screen Styles
+  rankingHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  rankingHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  backIcon: {
+    fontSize: 24,
+    color: 'white',
+    marginRight: 16,
+    marginTop: 4,
+  },
+  rankingHeaderContent: {
+    flex: 1,
+  },
+  rankingTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  rankingSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+  },
+  rankingTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 4,
+  },
+  rankingTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  rankingTabActive: {
+    backgroundColor: '#0F172A',
+  },
+  rankingTabText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  rankingTabTextActive: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  rankingContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  // Top 3 Section Styles
+  top3Section: {
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  top3Header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  top3Icon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  top3Title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  top3Container: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  top3Item: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  top3Medal: {
+    marginBottom: 8,
+  },
+  top3MedalIcon: {
+    fontSize: 24,
+  },
+  top3Crown: {
+    marginBottom: 8,
+  },
+  top3CrownIcon: {
+    fontSize: 24,
+  },
+  top3Logo: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  top3LogoFirst: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  top3LogoIcon: {
+    fontSize: 24,
+    color: 'white',
+  },
+  top3Badge: {
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  top3BadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  top3StoreName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  top3Sales: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  // Ranking List Styles
+  rankingList: {
+    marginBottom: 20,
+  },
+  rankingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  rankingItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  rankingCrownIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  rankingMedalIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  rankingPosition: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+    marginRight: 12,
+    minWidth: 32,
+  },
+  rankingItemLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  rankingItemLogoIcon: {
+    fontSize: 18,
+    color: 'white',
+  },
+  rankingItemInfo: {
+    flex: 1,
+  },
+  rankingItemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  rankingItemCategory: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
+  rankingItemSales: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  rankingItemRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rankingItemRatingText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 4,
+  },
+  rankingStarIcon: {
+    fontSize: 12,
+  },
+  rankingCashback: {
+    backgroundColor: '#1E40AF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  rankingCashbackPercent: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  rankingCashbackText: {
+    fontSize: 10,
+    color: 'white',
+    opacity: 0.8,
+  },
+  // Compare Screen Styles
+  compareHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  compareHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  compareHeaderContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  compareTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  compareSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+    textAlign: 'center',
+  },
+  compareContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  // Search Section Styles
+  searchSection: {
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  compareSearchIcon: {
+    fontSize: 18,
+    marginRight: 12,
+    color: '#9CA3AF',
+  },
+  compareSearchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: 'white',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 6,
+  },
+  actionButtonIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '500',
+  },
+  aiSearchBox: {
+    flexDirection: 'row',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'flex-start',
+  },
+  aiSearchIcon: {
+    fontSize: 20,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  aiSearchContent: {
+    flex: 1,
+  },
+  aiSearchTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  aiSearchDescription: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    lineHeight: 20,
+  },
+  // Results Section Styles
+  resultsSection: {
+    marginTop: 24,
+  },
+  resultsHeader: {
+    marginBottom: 16,
+  },
+  resultsTitle: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 4,
+  },
+  resultsProduct: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  // Compare Card Styles
+  compareCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  compareCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  bestOfferBadge: {
+    backgroundColor: '#1E40AF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  bestOfferText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  compareCardHeaderRight: {
+    alignItems: 'flex-end',
+  },
+  compareCashbackBadge: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  compareStoreInfo: {
+    marginBottom: 16,
+  },
+  compareStoreName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  compareStoreDetails: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  // Price Details Styles
+  priceDetails: {
+    marginBottom: 12,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '500',
+  },
+  cashbackValue: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  priceSeparator: {
+    height: 1,
+    backgroundColor: '#2A2A2A',
+    marginVertical: 12,
+  },
+  finalPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  finalPriceLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
+  },
+  finalPriceValue: {
+    fontSize: 18,
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+  },
+  viewStoreButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  viewStoreButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
 });
