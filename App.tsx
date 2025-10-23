@@ -6,6 +6,7 @@ export default function App() {
   const [searchText, setSearchText] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('home');
+  const [walletSubScreen, setWalletSubScreen] = useState<string | null>(null);
 
   const handleLogout = () => {
     Alert.alert(
@@ -48,7 +49,7 @@ export default function App() {
     { name: 'Início', icon: '🏠', active: currentScreen === 'home', screen: 'home' },
     { name: 'Ranking', icon: '📊', active: currentScreen === 'ranking', screen: 'ranking' },
     { name: 'Comparar', icon: '🔍', active: currentScreen === 'compare', screen: 'compare' },
-    { name: 'Carteira', icon: '💰', active: false, screen: 'wallet' },
+    { name: 'Carteira', icon: '💰', active: currentScreen === 'wallet', screen: 'wallet' },
     { name: 'Perfil', icon: '👤', active: false, screen: 'profile' },
   ];
 
@@ -687,6 +688,472 @@ export default function App() {
     );
   };
 
+  // Componente da Tela de Comprar Cashback
+  const BuyCashbackScreen = () => {
+    const [selectedAmount, setSelectedAmount] = useState(50);
+    const [selectedMethod, setSelectedMethod] = useState('pix');
+
+    const cashbackPackages = [
+      { id: 1, amount: 25, price: 20, bonus: 0, popular: false },
+      { id: 2, amount: 50, price: 40, bonus: 5, popular: true },
+      { id: 3, amount: 100, price: 80, bonus: 15, popular: false },
+      { id: 4, amount: 200, price: 160, bonus: 40, popular: false },
+    ];
+
+    const paymentMethods = [
+      { id: 'pix', name: 'PIX', icon: '⚡', description: 'Aprovação instantânea' },
+      { id: 'credit', name: 'Cartão de Crédito', icon: '💳', description: 'Parcelamento disponível' },
+      { id: 'debit', name: 'Cartão de Débito', icon: '🏦', description: 'Débito em conta' },
+    ];
+
+    const selectedPackage = cashbackPackages.find(pkg => pkg.amount === selectedAmount);
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.buyCashbackHeader}>
+          <View style={styles.buyCashbackHeaderTop}>
+            <TouchableOpacity onPress={() => setWalletSubScreen(null)}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.buyCashbackTitle}>Comprar Cashback</Text>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.buyCashbackContent} showsVerticalScrollIndicator={false}>
+          {/* Info Card */}
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardTitle}>💰 Como funciona?</Text>
+            <Text style={styles.infoCardText}>
+              Compre cashback e use em qualquer loja parceira. Quanto mais você compra, maior o bônus!
+            </Text>
+          </View>
+
+          {/* Package Selection */}
+          <View style={styles.packageSection}>
+            <Text style={styles.sectionTitle}>Escolha seu pacote</Text>
+            <View style={styles.packagesGrid}>
+              {cashbackPackages.map((pkg) => (
+                <TouchableOpacity
+                  key={pkg.id}
+                  style={[
+                    styles.packageCard,
+                    selectedAmount === pkg.amount && styles.packageCardSelected,
+                    pkg.popular && styles.packageCardPopular
+                  ]}
+                  onPress={() => setSelectedAmount(pkg.amount)}
+                >
+                  {pkg.popular && (
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularBadgeText}>MAIS POPULAR</Text>
+                    </View>
+                  )}
+                  <Text style={styles.packageAmount}>R$ {pkg.amount}</Text>
+                  <Text style={styles.packagePrice}>R$ {pkg.price}</Text>
+                  {pkg.bonus > 0 && (
+                    <Text style={styles.packageBonus}>+R$ {pkg.bonus} bônus</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Payment Method */}
+          <View style={styles.paymentSection}>
+            <Text style={styles.sectionTitle}>Forma de pagamento</Text>
+            {paymentMethods.map((method) => (
+              <TouchableOpacity
+                key={method.id}
+                style={[
+                  styles.paymentMethodCard,
+                  selectedMethod === method.id && styles.paymentMethodCardSelected
+                ]}
+                onPress={() => setSelectedMethod(method.id)}
+              >
+                <View style={styles.paymentMethodLeft}>
+                  <Text style={styles.paymentMethodIcon}>{method.icon}</Text>
+                  <View style={styles.paymentMethodInfo}>
+                    <Text style={styles.paymentMethodName}>{method.name}</Text>
+                    <Text style={styles.paymentMethodDescription}>{method.description}</Text>
+                  </View>
+                </View>
+                <View style={[
+                  styles.paymentMethodRadio,
+                  selectedMethod === method.id && styles.paymentMethodRadioSelected
+                ]} />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Summary */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Resumo da compra</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Cashback:</Text>
+              <Text style={styles.summaryValue}>R$ {selectedPackage?.amount}</Text>
+            </View>
+            {selectedPackage && selectedPackage.bonus > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Bônus:</Text>
+                <Text style={styles.summaryBonusValue}>+R$ {selectedPackage.bonus}</Text>
+              </View>
+            )}
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryTotalLabel}>Total a pagar:</Text>
+              <Text style={styles.summaryTotalValue}>R$ {selectedPackage?.price}</Text>
+            </View>
+          </View>
+
+          {/* Buy Button */}
+          <TouchableOpacity style={styles.buyButton}>
+            <Text style={styles.buyButtonText}>Comprar Agora</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Vouchers
+  const VouchersScreen = () => {
+    const [activeTab, setActiveTab] = useState('available');
+
+    const availableVouchers = [
+      {
+        id: 1,
+        storeName: 'TechWorld',
+        discount: '10%',
+        description: 'Desconto em eletrônicos',
+        expiryDate: '31/01/2025',
+        minValue: 100,
+        icon: '⚡',
+        iconBg: '#4CAF50',
+      },
+      {
+        id: 2,
+        storeName: 'Boutique Elegance',
+        discount: '15%',
+        description: 'Desconto em roupas',
+        expiryDate: '28/01/2025',
+        minValue: 50,
+        icon: '👔',
+        iconBg: '#9E9E9E',
+      },
+      {
+        id: 3,
+        storeName: 'Farmácia Saúde+',
+        discount: '8%',
+        description: 'Desconto em medicamentos',
+        expiryDate: '25/01/2025',
+        minValue: 30,
+        icon: '💊',
+        iconBg: '#4CAF50',
+      },
+    ];
+
+    const usedVouchers = [
+      {
+        id: 4,
+        storeName: 'Restaurante Sabor',
+        discount: '12%',
+        description: 'Desconto em refeições',
+        usedDate: '15/01/2025',
+        icon: '🍽️',
+        iconBg: '#8D6E63',
+      },
+    ];
+
+    const currentVouchers = activeTab === 'available' ? availableVouchers : usedVouchers;
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.vouchersHeader}>
+          <View style={styles.vouchersHeaderTop}>
+            <TouchableOpacity onPress={() => setWalletSubScreen(null)}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.vouchersTitle}>Meus Vouchers</Text>
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.vouchersTabs}>
+            <TouchableOpacity
+              style={[styles.vouchersTab, activeTab === 'available' && styles.vouchersTabActive]}
+              onPress={() => setActiveTab('available')}
+            >
+              <Text style={[styles.vouchersTabText, activeTab === 'available' && styles.vouchersTabTextActive]}>
+                Disponíveis ({availableVouchers.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.vouchersTab, activeTab === 'used' && styles.vouchersTabActive]}
+              onPress={() => setActiveTab('used')}
+            >
+              <Text style={[styles.vouchersTabText, activeTab === 'used' && styles.vouchersTabTextActive]}>
+                Usados ({usedVouchers.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.vouchersContent} showsVerticalScrollIndicator={false}>
+          {currentVouchers.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateIcon}>🎫</Text>
+              <Text style={styles.emptyStateTitle}>Nenhum voucher encontrado</Text>
+              <Text style={styles.emptyStateText}>
+                {activeTab === 'available'
+                  ? 'Você não possui vouchers disponíveis no momento.'
+                  : 'Você ainda não usou nenhum voucher.'
+                }
+              </Text>
+            </View>
+          ) : (
+            currentVouchers.map((voucher) => (
+              <View key={voucher.id} style={styles.voucherCard}>
+                <View style={styles.voucherLeft}>
+                  <View style={[styles.voucherIcon, { backgroundColor: voucher.iconBg }]}>
+                    <Text style={styles.voucherIconText}>{voucher.icon}</Text>
+                  </View>
+                  <View style={styles.voucherInfo}>
+                    <Text style={styles.voucherStoreName}>{voucher.storeName}</Text>
+                    <Text style={styles.voucherDiscount}>{voucher.discount} de desconto</Text>
+                    <Text style={styles.voucherDescription}>{voucher.description}</Text>
+                    {activeTab === 'available' ? (
+                      <>
+                        <Text style={styles.voucherExpiry}>Expira em: {'expiryDate' in voucher ? voucher.expiryDate : ''}</Text>
+                        <Text style={styles.voucherMinValue}>Valor mínimo: R$ {'minValue' in voucher ? voucher.minValue : ''}</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.voucherUsedDate}>Usado em: {'usedDate' in voucher ? voucher.usedDate : ''}</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.voucherRight}>
+                  {activeTab === 'available' ? (
+                    <TouchableOpacity style={styles.useVoucherButton}>
+                      <Text style={styles.useVoucherButtonText}>Usar</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.usedBadge}>
+                      <Text style={styles.usedBadgeText}>Usado</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Carteira
+  const WalletScreen = () => {
+    // Dados das transações do histórico
+    const transactions = [
+      {
+        id: 1,
+        storeName: 'Boutique Elegance',
+        date: '17/01/2025',
+        amount: 45.50,
+        type: 'received',
+        expiresIn: 43,
+        icon: '👔',
+        iconBg: '#4CAF50',
+        iconColor: '#2E7D32',
+      },
+      {
+        id: 2,
+        storeName: 'TechWorld',
+        date: '16/01/2025',
+        amount: 30.00,
+        type: 'used',
+        expiresIn: null,
+        icon: '⚡',
+        iconBg: '#FFCDD2',
+        iconColor: '#D32F2F',
+      },
+      {
+        id: 3,
+        storeName: 'Farmácia Saúde+',
+        date: '14/01/2025',
+        amount: 12.80,
+        type: 'received',
+        expiresIn: 41,
+        icon: '💊',
+        iconBg: '#4CAF50',
+        iconColor: '#2E7D32',
+      },
+      {
+        id: 4,
+        storeName: 'Restaurante Sabor',
+        date: '13/01/2025',
+        amount: 18.90,
+        type: 'received',
+        expiresIn: 40,
+        icon: '🍽️',
+        iconBg: '#4CAF50',
+        iconColor: '#2E7D32',
+      },
+      {
+        id: 5,
+        storeName: 'Clube iLocash',
+        date: '09/01/2025',
+        amount: 50.00,
+        type: 'purchased',
+        expiresIn: 36,
+        icon: '🎁',
+        iconBg: '#2196F3',
+        iconColor: '#1976D2',
+      },
+    ];
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.walletHeader}>
+          <View style={styles.walletHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.walletTitle}>Minha Carteira</Text>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.walletContent} showsVerticalScrollIndicator={false}>
+          {/* Balance Card */}
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>Saldo Total em Cashback</Text>
+            <Text style={styles.balanceAmount}>R$ 127,50</Text>
+            <Text style={styles.balanceExpiry}>Expira em até 45 dias</Text>
+
+            {/* Action Buttons */}
+            <View style={styles.balanceActions}>
+              <TouchableOpacity
+                style={styles.buyCashbackButton}
+                onPress={() => setWalletSubScreen('buy')}
+              >
+                <Text style={styles.buyCashbackIcon}>🎁</Text>
+                <Text style={styles.buyCashbackText}>Comprar Cashback</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.viewVouchersButton}
+                onPress={() => setWalletSubScreen('vouchers')}
+              >
+                <Text style={styles.viewVouchersText}>Ver Vouchers</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Stats Cards */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>R$ 247</Text>
+              <Text style={styles.statLabel}>Ganho Total</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>R$ 119</Text>
+              <Text style={styles.statLabel}>Usado</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>23</Text>
+              <Text style={styles.statLabel}>Transações</Text>
+            </View>
+          </View>
+
+          {/* Cashback Distribution */}
+          <View style={styles.distributionSection}>
+            <Text style={styles.distributionTitle}>Distribuição de Cashback</Text>
+            <View style={styles.distributionItem}>
+              <View style={styles.distributionLeft}>
+                <View style={styles.distributionDotFree} />
+                <Text style={styles.distributionText}>Livre (todas as lojas)</Text>
+              </View>
+              <Text style={styles.distributionAmount}>R$ 85,00</Text>
+            </View>
+            <View style={styles.distributionItem}>
+              <View style={styles.distributionLeft}>
+                <View style={styles.distributionDotSpecific} />
+                <Text style={styles.distributionText}>Lojas específicas</Text>
+              </View>
+              <Text style={styles.distributionAmount}>R$ 42,50</Text>
+            </View>
+          </View>
+
+          {/* History Section */}
+          <View style={styles.historySection}>
+            <Text style={styles.historyTitle}>Histórico</Text>
+            {transactions.map((transaction) => (
+              <View key={transaction.id} style={styles.transactionCard}>
+                <View style={styles.transactionLeft}>
+                  <View style={[styles.transactionIcon, { backgroundColor: transaction.iconBg }]}>
+                    <Text style={styles.transactionIconText}>{transaction.icon}</Text>
+                  </View>
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionStore}>{transaction.storeName}</Text>
+                    <Text style={styles.transactionDate}>{transaction.date}</Text>
+                    {transaction.expiresIn && (
+                      <View style={styles.transactionExpiry}>
+                        <Text style={styles.expiryIcon}>🕒</Text>
+                        <Text style={styles.expiryText}>Expira em {transaction.expiresIn} dias</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={[
+                    styles.transactionAmount,
+                    transaction.type === 'used' ? styles.transactionAmountUsed : styles.transactionAmountReceived
+                  ]}>
+                    {transaction.type === 'used' ? `R$ ${transaction.amount.toFixed(2).replace('.', ',')}` : `+R$ ${transaction.amount.toFixed(2).replace('.', ',')}`}
+                  </Text>
+                  <TouchableOpacity style={[
+                    styles.transactionStatus,
+                    transaction.type === 'purchased' ? styles.transactionStatusPurchased : styles.transactionStatusDefault
+                  ]}>
+                    <Text style={styles.transactionStatusText}>
+                      {transaction.type === 'received' ? 'Recebido' :
+                        transaction.type === 'used' ? 'Usado' : 'Comprado'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => setCurrentScreen(item.screen)}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Componente da Tela Home
   const HomeScreen = () => (
     <View style={styles.container}>
@@ -830,6 +1297,16 @@ export default function App() {
 
   if (currentScreen === 'compare') {
     return <CompareScreen />;
+  }
+
+  if (currentScreen === 'wallet') {
+    if (walletSubScreen === 'buy') {
+      return <BuyCashbackScreen />;
+    }
+    if (walletSubScreen === 'vouchers') {
+      return <VouchersScreen />;
+    }
+    return <WalletScreen />;
   }
 
   return <HomeScreen />;
@@ -1756,5 +2233,616 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  // Wallet Screen Styles
+  walletHeader: {
+    backgroundColor: '#1E293B',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  walletHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  walletTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 16,
+  },
+  walletContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  // Balance Card Styles
+  balanceCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: 'white',
+    marginBottom: 8,
+  },
+  balanceAmount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  balanceExpiry: {
+    fontSize: 14,
+    color: 'white',
+    marginBottom: 20,
+  },
+  balanceActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  buyCashbackButton: {
+    flex: 1,
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  buyCashbackIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  buyCashbackText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  viewVouchersButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'white',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  viewVouchersText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Stats Cards Styles
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'white',
+    textAlign: 'center',
+  },
+  // Distribution Section Styles
+  distributionSection: {
+    marginBottom: 24,
+  },
+  distributionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  distributionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  distributionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  distributionDotFree: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#5C8FFC',
+    marginRight: 12,
+  },
+  distributionDotSpecific: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#9CA3AF',
+    marginRight: 12,
+  },
+  distributionText: {
+    fontSize: 14,
+    color: 'white',
+  },
+  distributionAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // History Section Styles
+  historySection: {
+    marginBottom: 20,
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  transactionCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  transactionIconText: {
+    fontSize: 18,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionStore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  transactionDate: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  transactionExpiry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expiryIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  expiryText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  transactionAmountReceived: {
+    color: '#10B981',
+  },
+  transactionAmountUsed: {
+    color: '#EF4444',
+  },
+  transactionStatus: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  transactionStatusDefault: {
+    backgroundColor: '#374151',
+  },
+  transactionStatusPurchased: {
+    backgroundColor: '#5C8FFC',
+  },
+  transactionStatusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Buy Cashback Screen Styles
+  buyCashbackHeader: {
+    backgroundColor: '#1E293B',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  buyCashbackHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buyCashbackTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 16,
+  },
+  buyCashbackContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  // Info Card Styles
+  infoCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+    marginBottom: 24,
+  },
+  infoCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  infoCardText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    lineHeight: 20,
+  },
+  // Package Section Styles
+  packageSection: {
+    marginBottom: 24,
+  },
+  packagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  packageCard: {
+    width: '48%',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  packageCardSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#1E293B',
+  },
+  packageCardPopular: {
+    borderColor: '#FFD700',
+  },
+  popularBadge: {
+    backgroundColor: '#FFD700',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  popularBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  packageAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  packagePrice: {
+    fontSize: 16,
+    color: '#5C8FFC',
+    marginBottom: 4,
+  },
+  packageBonus: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  // Payment Section Styles
+  paymentSection: {
+    marginBottom: 24,
+  },
+  paymentMethodCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  paymentMethodCardSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#1E293B',
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  paymentMethodIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  paymentMethodDescription: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  paymentMethodRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+  },
+  paymentMethodRadioSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#5C8FFC',
+  },
+  // Summary Card Styles
+  summaryCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '500',
+  },
+  summaryBonusValue: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#374151',
+    marginVertical: 12,
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  summaryTotalValue: {
+    fontSize: 18,
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+  },
+  // Buy Button Styles
+  buyButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  buyButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Vouchers Screen Styles
+  vouchersHeader: {
+    backgroundColor: '#1E293B',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  vouchersHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  vouchersTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 16,
+  },
+  vouchersTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 4,
+  },
+  vouchersTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  vouchersTabActive: {
+    backgroundColor: '#1E293B',
+  },
+  vouchersTabText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  vouchersTabTextActive: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  vouchersContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  // Empty State Styles
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Voucher Card Styles
+  voucherCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  voucherLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  voucherIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  voucherIconText: {
+    fontSize: 20,
+  },
+  voucherInfo: {
+    flex: 1,
+  },
+  voucherStoreName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  voucherDiscount: {
+    fontSize: 14,
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  voucherDescription: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  voucherExpiry: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginBottom: 2,
+  },
+  voucherMinValue: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  voucherUsedDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  voucherRight: {
+    alignItems: 'flex-end',
+  },
+  useVoucherButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  useVoucherButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  usedBadge: {
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  usedBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
   },
 });
