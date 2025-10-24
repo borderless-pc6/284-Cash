@@ -7,6 +7,9 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('home');
   const [walletSubScreen, setWalletSubScreen] = useState<string | null>(null);
+  const [selectedStore, setSelectedStore] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [storeSubScreen, setStoreSubScreen] = useState<string | null>(null);
 
   const handleLogout = () => {
     Alert.alert(
@@ -229,6 +232,42 @@ export default function App() {
       badge: 'Top da Cidade',
       badgeColor: '#5C8FFC',
       image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=200&fit=crop',
+      description: 'Loja especializada em roupas elegantes e modernas para todas as ocasiões.',
+      address: 'Rua das Flores, 123 - Centro',
+      phone: '(11) 99999-9999',
+      hours: 'Seg-Sex: 9h-18h | Sáb: 9h-16h',
+      products: [
+        {
+          id: 1,
+          name: 'Vestido Elegante',
+          price: 299.90,
+          originalPrice: 399.90,
+          image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300&h=300&fit=crop',
+          category: 'Vestidos',
+          rating: 4.9,
+          reviews: 127,
+        },
+        {
+          id: 2,
+          name: 'Blusa Premium',
+          price: 149.90,
+          originalPrice: 199.90,
+          image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=300&h=300&fit=crop',
+          category: 'Blusas',
+          rating: 4.7,
+          reviews: 89,
+        },
+        {
+          id: 3,
+          name: 'Calça Social',
+          price: 199.90,
+          originalPrice: 279.90,
+          image: 'https://images.unsplash.com/photo-1506629905607-0b2b4b0b0b0b?w=300&h=300&fit=crop',
+          category: 'Calças',
+          rating: 4.8,
+          reviews: 156,
+        },
+      ],
     },
     {
       id: 2,
@@ -240,6 +279,42 @@ export default function App() {
       badge: 'Loja Premium',
       badgeColor: '#5C8FFC',
       image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop',
+      description: 'A melhor loja de eletrônicos com os últimos lançamentos em tecnologia.',
+      address: 'Av. Paulista, 1000 - Bela Vista',
+      phone: '(11) 88888-8888',
+      hours: 'Seg-Sex: 8h-20h | Sáb-Dom: 9h-18h',
+      products: [
+        {
+          id: 4,
+          name: 'iPhone 15 Pro',
+          price: 8999.00,
+          originalPrice: 9999.00,
+          image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=300&h=300&fit=crop',
+          category: 'Smartphones',
+          rating: 4.9,
+          reviews: 234,
+        },
+        {
+          id: 5,
+          name: 'MacBook Air M2',
+          price: 7999.00,
+          originalPrice: 8999.00,
+          image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop',
+          category: 'Notebooks',
+          rating: 4.8,
+          reviews: 189,
+        },
+        {
+          id: 6,
+          name: 'AirPods Pro',
+          price: 1299.00,
+          originalPrice: 1499.00,
+          image: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=300&h=300&fit=crop',
+          category: 'Acessórios',
+          rating: 4.7,
+          reviews: 312,
+        },
+      ],
     },
     {
       id: 3,
@@ -251,8 +326,667 @@ export default function App() {
       badge: 'Loja do Mês',
       badgeColor: '#5C8FFC',
       image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=400&h=200&fit=crop',
+      description: 'Farmácia completa com medicamentos e produtos de saúde e beleza.',
+      address: 'Rua da Saúde, 456 - Centro',
+      phone: '(11) 77777-7777',
+      hours: 'Seg-Dom: 24h',
+      products: [
+        {
+          id: 7,
+          name: 'Vitamina D3',
+          price: 45.90,
+          originalPrice: 59.90,
+          image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=300&fit=crop',
+          category: 'Vitaminas',
+          rating: 4.6,
+          reviews: 78,
+        },
+        {
+          id: 8,
+          name: 'Protetor Solar FPS 60',
+          price: 29.90,
+          originalPrice: 39.90,
+          image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=300&h=300&fit=crop',
+          category: 'Cosméticos',
+          rating: 4.8,
+          reviews: 145,
+        },
+        {
+          id: 9,
+          name: 'Termômetro Digital',
+          price: 35.90,
+          originalPrice: 49.90,
+          image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=300&fit=crop',
+          category: 'Equipamentos',
+          rating: 4.5,
+          reviews: 92,
+        },
+      ],
     },
   ];
+
+  // Componente da Tela de Detalhes da Loja
+  const StoreDetailScreen = () => {
+    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    const calculateCashback = (price: number) => {
+      if (!selectedStore) return 0;
+      const cashbackPercent = parseFloat(selectedStore.cashback.replace('%', ''));
+      return (price * cashbackPercent) / 100;
+    };
+
+    if (!selectedStore) {
+      return (
+        <View style={styles.container}>
+          <StatusBar style="light" />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Loja não encontrada</Text>
+            <TouchableOpacity
+              style={styles.errorButton}
+              onPress={() => setCurrentScreen('home')}
+            >
+              <Text style={styles.errorButtonText}>Voltar ao Início</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.storeDetailHeader}>
+          <View style={styles.storeDetailHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.storeDetailTitle}>{selectedStore.name}</Text>
+            <TouchableOpacity>
+              <Text style={styles.shareIcon}>📤</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Store Image */}
+          <View style={styles.storeDetailImageContainer}>
+            <Image source={{ uri: selectedStore.image }} style={styles.storeDetailImage} />
+
+            {/* Badges */}
+            <View style={styles.storeDetailBadges}>
+              <View style={[styles.badge, { backgroundColor: selectedStore.badgeColor }]}>
+                <Text style={styles.badgeText}>{selectedStore.badge}</Text>
+              </View>
+              <View style={[styles.cashbackBadge, { backgroundColor: '#1E293B' }]}>
+                <Text style={styles.cashbackText}>{selectedStore.cashback} cashback</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.storeDetailContent} showsVerticalScrollIndicator={false}>
+          {/* Store Info */}
+          <View style={styles.storeInfoSection}>
+            <Text style={styles.storeDetailName}>{selectedStore.name}</Text>
+            <Text style={styles.storeDetailCategory}>{selectedStore.category}</Text>
+            <Text style={styles.storeDetailDescription}>{selectedStore.description}</Text>
+
+            {/* Store Details */}
+            <View style={styles.storeDetailItems}>
+              <View style={styles.storeDetailItem}>
+                <Text style={styles.storeDetailItemIcon}>📍</Text>
+                <Text style={styles.storeDetailItemText}>{selectedStore.address}</Text>
+              </View>
+              <View style={styles.storeDetailItem}>
+                <Text style={styles.storeDetailItemIcon}>📞</Text>
+                <Text style={styles.storeDetailItemText}>{selectedStore.phone}</Text>
+              </View>
+              <View style={styles.storeDetailItem}>
+                <Text style={styles.storeDetailItemIcon}>🕒</Text>
+                <Text style={styles.storeDetailItemText}>{selectedStore.hours}</Text>
+              </View>
+              <View style={styles.storeDetailItem}>
+                <Text style={styles.storeDetailItemIcon}>⭐</Text>
+                <Text style={styles.storeDetailItemText}>{selectedStore.rating} ({selectedStore.distance})</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.storeActionButtons}>
+            <TouchableOpacity style={styles.storeActionButton}>
+              <Text style={styles.storeActionButtonIcon}>📞</Text>
+              <Text style={styles.storeActionButtonText}>Ligar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.storeActionButton}>
+              <Text style={styles.storeActionButtonIcon}>🗺️</Text>
+              <Text style={styles.storeActionButtonText}>Navegar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.storeActionButtonPrimary}
+              onPress={() => setStoreSubScreen('products')}
+            >
+              <Text style={styles.storeActionButtonIcon}>🛍️</Text>
+              <Text style={styles.storeActionButtonTextPrimary}>Ver Produtos</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Products Preview */}
+          <View style={styles.productsPreviewSection}>
+            <View style={styles.productsPreviewHeader}>
+              <Text style={styles.productsPreviewTitle}>Produtos em Destaque</Text>
+              <TouchableOpacity onPress={() => setStoreSubScreen('products')}>
+                <Text style={styles.seeAllProductsLink}>Ver todos</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {selectedStore.products.slice(0, 3).map((product: any) => (
+                <TouchableOpacity
+                  key={product.id}
+                  style={styles.productPreviewCard}
+                  onPress={() => {
+                    console.log('Produto selecionado (preview):', product);
+                    setSelectedProduct(product);
+                    setStoreSubScreen('product-detail');
+                  }}
+                >
+                  <Image source={{ uri: product.image }} style={styles.productPreviewImage} />
+                  <Text style={styles.productPreviewName}>{product.name}</Text>
+                  <View style={styles.productPreviewPrice}>
+                    <Text style={styles.productPreviewCurrentPrice}>{formatPrice(product.price)}</Text>
+                    <Text style={styles.productPreviewOriginalPrice}>{formatPrice(product.originalPrice)}</Text>
+                  </View>
+                  <View style={styles.productPreviewRating}>
+                    <Text style={styles.productPreviewRatingText}>⭐ {product.rating}</Text>
+                    <Text style={styles.productPreviewReviewsText}>({product.reviews})</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Produtos da Loja
+  const StoreProductsScreen = () => {
+    const [selectedCategory, setSelectedCategory] = useState('Todos');
+
+    if (!selectedStore || !selectedStore.products) {
+      return (
+        <View style={styles.container}>
+          <StatusBar style="light" />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Loja não encontrada</Text>
+            <TouchableOpacity
+              style={styles.errorButton}
+              onPress={() => setStoreSubScreen(null)}
+            >
+              <Text style={styles.errorButtonText}>Voltar à Loja</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    const categories = ['Todos', ...Array.from(new Set(selectedStore.products.map((p: any) => p.category)))];
+
+    const filteredProducts = selectedCategory === 'Todos'
+      ? selectedStore.products
+      : selectedStore.products.filter((p: any) => p.category === selectedCategory);
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.storeProductsHeader}>
+          <View style={styles.storeProductsHeaderTop}>
+            <TouchableOpacity onPress={() => setStoreSubScreen(null)}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.storeProductsTitle}>Produtos - {selectedStore.name}</Text>
+            <TouchableOpacity>
+              <Text style={styles.filterIcon}>🔍</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Categories Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesFilter}>
+            {categories.map((category, index) => {
+              const categoryStr = String(category);
+              return (
+                <TouchableOpacity
+                  key={categoryStr}
+                  style={[
+                    styles.categoryFilterItem,
+                    selectedCategory === categoryStr && styles.categoryFilterItemActive
+                  ]}
+                  onPress={() => setSelectedCategory(categoryStr)}
+                >
+                  <Text style={[
+                    styles.categoryFilterText,
+                    selectedCategory === categoryStr && styles.categoryFilterTextActive
+                  ]}>
+                    {categoryStr}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Products Grid */}
+        <ScrollView style={styles.storeProductsContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.productsGrid}>
+            {filteredProducts.map((product: any) => (
+              <TouchableOpacity
+                key={product.id}
+                style={styles.productCard}
+                onPress={() => {
+                  console.log('Produto selecionado:', product);
+                  setSelectedProduct(product);
+                  setStoreSubScreen('product-detail');
+                }}
+              >
+                <Image source={{ uri: product.image }} style={styles.productImage} />
+
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.productCategory}>{product.category}</Text>
+
+                  <View style={styles.productPriceContainer}>
+                    <Text style={styles.productCurrentPrice}>{formatPrice(product.price)}</Text>
+                    <Text style={styles.productOriginalPrice}>{formatPrice(product.originalPrice)}</Text>
+                  </View>
+
+                  <View style={styles.productRating}>
+                    <Text style={styles.productRatingText}>⭐ {product.rating}</Text>
+                    <Text style={styles.productReviewsText}>({product.reviews})</Text>
+                  </View>
+
+                  <View style={styles.productCashback}>
+                    <Text style={styles.productCashbackText}>
+                      +{selectedStore.cashback} cashback
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Detalhes do Produto
+  const ProductDetailScreen = () => {
+    const [quantity, setQuantity] = useState(1);
+    const [selectedSize, setSelectedSize] = useState('M');
+    const [selectedColor, setSelectedColor] = useState('Preto');
+
+    console.log('ProductDetailScreen - selectedProduct:', selectedProduct);
+    console.log('ProductDetailScreen - selectedStore:', selectedStore);
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    const calculateCashback = () => {
+      if (!selectedProduct || !selectedStore) return 0;
+      const cashbackPercent = parseFloat(selectedStore.cashback.replace('%', ''));
+      return (selectedProduct.price * quantity * cashbackPercent) / 100;
+    };
+
+    if (!selectedProduct || !selectedStore) {
+      console.log('Produto ou loja não encontrados, exibindo tela de erro');
+      return (
+        <View style={styles.container}>
+          <StatusBar style="light" />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Produto não encontrado</Text>
+            <TouchableOpacity
+              style={styles.errorButton}
+              onPress={() => setStoreSubScreen('products')}
+            >
+              <Text style={styles.errorButtonText}>Voltar aos Produtos</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    const totalPrice = selectedProduct.price * quantity;
+    const cashbackAmount = calculateCashback();
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.productDetailHeader}>
+          <View style={styles.productDetailHeaderTop}>
+            <TouchableOpacity onPress={() => setStoreSubScreen('products')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.productDetailTitle}>Detalhes do Produto</Text>
+            <TouchableOpacity>
+              <Text style={styles.favoriteIcon}>❤️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.productDetailContent} showsVerticalScrollIndicator={false}>
+          {/* Product Image */}
+          <View style={styles.productDetailImageContainer}>
+            <Image source={{ uri: selectedProduct.image }} style={styles.productDetailImage} />
+          </View>
+
+          {/* Product Info */}
+          <View style={styles.productDetailInfo}>
+            <Text style={styles.productDetailName}>{selectedProduct.name}</Text>
+            <Text style={styles.productDetailCategory}>{selectedProduct.category}</Text>
+
+            <View style={styles.productDetailRating}>
+              <Text style={styles.productDetailRatingText}>⭐ {selectedProduct.rating}</Text>
+              <Text style={styles.productDetailReviewsText}>({selectedProduct.reviews} avaliações)</Text>
+            </View>
+
+            {/* Price */}
+            <View style={styles.productDetailPriceContainer}>
+              <Text style={styles.productDetailCurrentPrice}>{formatPrice(selectedProduct.price)}</Text>
+              <Text style={styles.productDetailOriginalPrice}>{formatPrice(selectedProduct.originalPrice)}</Text>
+              <View style={styles.productDetailDiscount}>
+                <Text style={styles.productDetailDiscountText}>
+                  {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
+                </Text>
+              </View>
+            </View>
+
+            {/* Cashback Info */}
+            <View style={styles.productDetailCashback}>
+              <Text style={styles.productDetailCashbackIcon}>💰</Text>
+              <Text style={styles.productDetailCashbackText}>
+                Ganhe {selectedStore.cashback} de cashback ({formatPrice(cashbackAmount)})
+              </Text>
+            </View>
+
+            {/* Size Selection */}
+            <View style={styles.productDetailSection}>
+              <Text style={styles.productDetailSectionTitle}>Tamanho</Text>
+              <View style={styles.sizeOptions}>
+                {['P', 'M', 'G', 'GG'].map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.sizeOption,
+                      selectedSize === size && styles.sizeOptionSelected
+                    ]}
+                    onPress={() => setSelectedSize(size)}
+                  >
+                    <Text style={[
+                      styles.sizeOptionText,
+                      selectedSize === size && styles.sizeOptionTextSelected
+                    ]}>
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Color Selection */}
+            <View style={styles.productDetailSection}>
+              <Text style={styles.productDetailSectionTitle}>Cor</Text>
+              <View style={styles.colorOptions}>
+                {['Preto', 'Branco', 'Azul', 'Vermelho'].map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorOption,
+                      selectedColor === color && styles.colorOptionSelected
+                    ]}
+                    onPress={() => setSelectedColor(color)}
+                  >
+                    <Text style={[
+                      styles.colorOptionText,
+                      selectedColor === color && styles.colorOptionTextSelected
+                    ]}>
+                      {color}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Quantity Selection */}
+            <View style={styles.productDetailSection}>
+              <Text style={styles.productDetailSectionTitle}>Quantidade</Text>
+              <View style={styles.quantitySelector}>
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                >
+                  <Text style={styles.quantityButtonText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.quantityText}>{quantity}</Text>
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => setQuantity(quantity + 1)}
+                >
+                  <Text style={styles.quantityButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Product Description */}
+            <View style={styles.productDetailSection}>
+              <Text style={styles.productDetailSectionTitle}>Descrição</Text>
+              <Text style={styles.productDetailDescription}>
+                Produto de alta qualidade com excelente custo-benefício.
+                Perfeito para uso diário com design moderno e confortável.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Action Bar */}
+        <View style={styles.productDetailBottomBar}>
+          <View style={styles.productDetailTotal}>
+            <Text style={styles.productDetailTotalLabel}>Total:</Text>
+            <Text style={styles.productDetailTotalPrice}>{formatPrice(totalPrice)}</Text>
+            <Text style={styles.productDetailCashbackAmount}>
+              +{formatPrice(cashbackAmount)} cashback
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addToCartButton}
+            onPress={() => setStoreSubScreen('checkout')}
+          >
+            <Text style={styles.addToCartButtonText}>Adicionar ao Carrinho</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Checkout
+  const CheckoutScreen = () => {
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cashback');
+    const [useCashback, setUseCashback] = useState(true);
+    const [cashbackAmount, setCashbackAmount] = useState(50.00);
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    if (!selectedProduct || !selectedStore) {
+      return (
+        <View style={styles.container}>
+          <StatusBar style="light" />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Produto não encontrado</Text>
+            <TouchableOpacity
+              style={styles.errorButton}
+              onPress={() => setStoreSubScreen('product-detail')}
+            >
+              <Text style={styles.errorButtonText}>Voltar ao Produto</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    const subtotal = selectedProduct.price;
+    const cashbackEarned = (subtotal * parseFloat(selectedStore.cashback.replace('%', ''))) / 100;
+    const cashbackUsed = useCashback ? Math.min(cashbackAmount, subtotal) : 0;
+    const total = subtotal - cashbackUsed;
+
+    const paymentMethods = [
+      { id: 'cashback', name: 'Cashback', icon: '💰', description: 'Usar saldo disponível' },
+      { id: 'pix', name: 'PIX', icon: '⚡', description: 'Aprovação instantânea' },
+      { id: 'credit', name: 'Cartão de Crédito', icon: '💳', description: 'Parcelamento disponível' },
+    ];
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.checkoutHeader}>
+          <View style={styles.checkoutHeaderTop}>
+            <TouchableOpacity onPress={() => setStoreSubScreen('product-detail')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.checkoutTitle}>Finalizar Compra</Text>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.checkoutContent} showsVerticalScrollIndicator={false}>
+          {/* Product Summary */}
+          <View style={styles.checkoutProductSummary}>
+            <Image source={{ uri: selectedProduct.image }} style={styles.checkoutProductImage} />
+            <View style={styles.checkoutProductInfo}>
+              <Text style={styles.checkoutProductName}>{selectedProduct.name}</Text>
+              <Text style={styles.checkoutProductCategory}>{selectedProduct.category}</Text>
+              <Text style={styles.checkoutProductPrice}>{formatPrice(selectedProduct.price)}</Text>
+            </View>
+          </View>
+
+          {/* Store Info */}
+          <View style={styles.checkoutStoreInfo}>
+            <Text style={styles.checkoutStoreName}>{selectedStore.name}</Text>
+            <Text style={styles.checkoutStoreAddress}>{selectedStore.address}</Text>
+            <Text style={styles.checkoutStoreCashback}>
+              {selectedStore.cashback} de cashback disponível
+            </Text>
+          </View>
+
+          {/* Payment Method */}
+          <View style={styles.checkoutPaymentSection}>
+            <Text style={styles.checkoutSectionTitle}>Forma de Pagamento</Text>
+            {paymentMethods.map((method) => (
+              <TouchableOpacity
+                key={method.id}
+                style={[
+                  styles.checkoutPaymentMethod,
+                  selectedPaymentMethod === method.id && styles.checkoutPaymentMethodSelected
+                ]}
+                onPress={() => setSelectedPaymentMethod(method.id)}
+              >
+                <View style={styles.checkoutPaymentMethodLeft}>
+                  <Text style={styles.checkoutPaymentMethodIcon}>{method.icon}</Text>
+                  <View style={styles.checkoutPaymentMethodInfo}>
+                    <Text style={styles.checkoutPaymentMethodName}>{method.name}</Text>
+                    <Text style={styles.checkoutPaymentMethodDescription}>{method.description}</Text>
+                  </View>
+                </View>
+                <View style={[
+                  styles.checkoutPaymentMethodRadio,
+                  selectedPaymentMethod === method.id && styles.checkoutPaymentMethodRadioSelected
+                ]} />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Cashback Usage */}
+          {selectedPaymentMethod === 'cashback' && (
+            <View style={styles.checkoutCashbackSection}>
+              <Text style={styles.checkoutSectionTitle}>Usar Cashback</Text>
+              <View style={styles.checkoutCashbackToggle}>
+                <Text style={styles.checkoutCashbackToggleText}>Usar cashback disponível</Text>
+                <TouchableOpacity
+                  style={[styles.checkoutToggle, useCashback && styles.checkoutToggleActive]}
+                  onPress={() => setUseCashback(!useCashback)}
+                >
+                  <View style={[styles.checkoutToggleButton, useCashback && styles.checkoutToggleButtonActive]} />
+                </TouchableOpacity>
+              </View>
+
+              {useCashback && (
+                <View style={styles.checkoutCashbackAmount}>
+                  <Text style={styles.checkoutCashbackAmountLabel}>Valor a usar:</Text>
+                  <TextInput
+                    style={styles.checkoutCashbackAmountInput}
+                    value={cashbackAmount.toString()}
+                    onChangeText={(text) => setCashbackAmount(parseFloat(text) || 0)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Order Summary */}
+          <View style={styles.checkoutOrderSummary}>
+            <Text style={styles.checkoutSectionTitle}>Resumo do Pedido</Text>
+
+            <View style={styles.checkoutSummaryRow}>
+              <Text style={styles.checkoutSummaryLabel}>Subtotal:</Text>
+              <Text style={styles.checkoutSummaryValue}>{formatPrice(subtotal)}</Text>
+            </View>
+
+            <View style={styles.checkoutSummaryRow}>
+              <Text style={styles.checkoutSummaryLabel}>Cashback usado:</Text>
+              <Text style={styles.checkoutSummaryDiscount}>-{formatPrice(cashbackUsed)}</Text>
+            </View>
+
+            <View style={styles.checkoutSummaryDivider} />
+
+            <View style={styles.checkoutSummaryRow}>
+              <Text style={styles.checkoutSummaryTotalLabel}>Total:</Text>
+              <Text style={styles.checkoutSummaryTotalValue}>{formatPrice(total)}</Text>
+            </View>
+
+            <View style={styles.checkoutSummaryRow}>
+              <Text style={styles.checkoutSummaryLabel}>Cashback ganho:</Text>
+              <Text style={styles.checkoutSummaryCashback}>+{formatPrice(cashbackEarned)}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Action Bar */}
+        <View style={styles.checkoutBottomBar}>
+          <TouchableOpacity style={styles.checkoutButton}>
+            <Text style={styles.checkoutButtonText}>Finalizar Compra</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   // Componente da Tela de Login
   const LoginScreen = () => {
@@ -1230,7 +1964,14 @@ export default function App() {
 
           {/* Store Cards */}
           {featuredStores.map((store) => (
-            <TouchableOpacity key={store.id} style={styles.storeCard}>
+            <TouchableOpacity
+              key={store.id}
+              style={styles.storeCard}
+              onPress={() => {
+                setSelectedStore(store);
+                setCurrentScreen('store-detail');
+              }}
+            >
               <View style={styles.storeImageContainer}>
                 <Image source={{ uri: store.image }} style={styles.storeImage} />
 
@@ -1307,6 +2048,23 @@ export default function App() {
       return <VouchersScreen />;
     }
     return <WalletScreen />;
+  }
+
+  if (currentScreen === 'store-detail') {
+    console.log('Renderizando store-detail, storeSubScreen:', storeSubScreen);
+    console.log('selectedProduct:', selectedProduct);
+    console.log('selectedStore:', selectedStore);
+
+    if (storeSubScreen === 'products') {
+      return <StoreProductsScreen />;
+    }
+    if (storeSubScreen === 'product-detail') {
+      return <ProductDetailScreen />;
+    }
+    if (storeSubScreen === 'checkout') {
+      return <CheckoutScreen />;
+    }
+    return <StoreDetailScreen />;
   }
 
   return <HomeScreen />;
@@ -2844,5 +3602,845 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#9CA3AF',
+  },
+  // Store Detail Screen Styles
+  storeDetailHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  storeDetailHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  storeDetailTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
+  },
+  shareIcon: {
+    fontSize: 20,
+    color: 'white',
+  },
+  storeDetailImageContainer: {
+    position: 'relative',
+    height: 200,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  storeDetailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  storeDetailBadges: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  storeDetailContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  storeInfoSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  storeDetailName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  storeDetailCategory: {
+    fontSize: 16,
+    color: '#5C8FFC',
+    marginBottom: 12,
+  },
+  storeDetailDescription: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  storeDetailItems: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+  },
+  storeDetailItemIcon: {
+    fontSize: 16,
+    marginRight: 12,
+    width: 20,
+  },
+  storeDetailItemText: {
+    fontSize: 14,
+    color: 'white',
+    flex: 1,
+  },
+  storeActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  storeActionButton: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  storeActionButtonPrimary: {
+    flex: 2,
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  storeActionButtonIcon: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  storeActionButtonText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '500',
+  },
+  storeActionButtonTextPrimary: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  productsPreviewSection: {
+    marginBottom: 20,
+  },
+  productsPreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  productsPreviewTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  seeAllProductsLink: {
+    fontSize: 14,
+    color: '#5C8FFC',
+    fontWeight: '500',
+  },
+  productPreviewCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    width: 150,
+  },
+  productPreviewImage: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  productPreviewName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  productPreviewPrice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  productPreviewCurrentPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginRight: 8,
+  },
+  productPreviewOriginalPrice: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  productPreviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productPreviewRatingText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 4,
+  },
+  productPreviewReviewsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  // Store Products Screen Styles
+  storeProductsHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  storeProductsHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  storeProductsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
+  },
+  filterIcon: {
+    fontSize: 20,
+    color: 'white',
+  },
+  categoriesFilter: {
+    marginBottom: 8,
+  },
+  categoryFilterItem: {
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+  },
+  categoryFilterItemActive: {
+    backgroundColor: '#0F172A',
+  },
+  categoryFilterText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  categoryFilterTextActive: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  storeProductsContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 20,
+  },
+  productCard: {
+    width: '48%',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  productInfo: {
+    padding: 12,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  productCategory: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  productPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  productCurrentPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginRight: 8,
+  },
+  productOriginalPrice: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  productRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  productRatingText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 4,
+  },
+  productReviewsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  productCashback: {
+    backgroundColor: '#1E40AF',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  productCashbackText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Product Detail Screen Styles
+  productDetailHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  productDetailHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  productDetailTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    flex: 1,
+    textAlign: 'center',
+  },
+  favoriteIcon: {
+    fontSize: 20,
+    color: 'white',
+  },
+  productDetailContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  productDetailImageContainer: {
+    height: 300,
+    backgroundColor: '#1A1A1A',
+  },
+  productDetailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  productDetailInfo: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  productDetailName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  productDetailCategory: {
+    fontSize: 16,
+    color: '#5C8FFC',
+    marginBottom: 12,
+  },
+  productDetailRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  productDetailRatingText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginRight: 8,
+  },
+  productDetailReviewsText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  productDetailPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  productDetailCurrentPrice: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginRight: 12,
+  },
+  productDetailOriginalPrice: {
+    fontSize: 18,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+    marginRight: 12,
+  },
+  productDetailDiscount: {
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  productDetailDiscountText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  productDetailCashback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  productDetailCashbackIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  productDetailCashbackText: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  productDetailSection: {
+    marginBottom: 24,
+  },
+  productDetailSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 12,
+  },
+  sizeOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  sizeOption: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  sizeOptionSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#1E293B',
+  },
+  sizeOptionText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
+  },
+  sizeOptionTextSelected: {
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+  },
+  colorOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  colorOption: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorOptionSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#1E293B',
+  },
+  colorOptionText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
+  },
+  colorOptionTextSelected: {
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+  },
+  quantitySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+  },
+  quantityButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  quantityText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginHorizontal: 20,
+  },
+  productDetailDescription: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    lineHeight: 20,
+  },
+  productDetailBottomBar: {
+    flexDirection: 'row',
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  productDetailTotal: {
+    flex: 1,
+  },
+  productDetailTotalLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  productDetailTotalPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  productDetailCashbackAmount: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  addToCartButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  addToCartButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Checkout Screen Styles
+  checkoutHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  checkoutHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkoutTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 16,
+  },
+  checkoutContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+  },
+  checkoutProductSummary: {
+    flexDirection: 'row',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  checkoutProductImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 16,
+  },
+  checkoutProductInfo: {
+    flex: 1,
+  },
+  checkoutProductName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  checkoutProductCategory: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  checkoutProductPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+  },
+  checkoutStoreInfo: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  checkoutStoreName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  checkoutStoreAddress: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  checkoutStoreCashback: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  checkoutPaymentSection: {
+    marginBottom: 20,
+  },
+  checkoutSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  checkoutPaymentMethod: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  checkoutPaymentMethodSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#1E293B',
+  },
+  checkoutPaymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkoutPaymentMethodIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  checkoutPaymentMethodInfo: {
+    flex: 1,
+  },
+  checkoutPaymentMethodName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  checkoutPaymentMethodDescription: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  checkoutPaymentMethodRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+  },
+  checkoutPaymentMethodRadioSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#5C8FFC',
+  },
+  checkoutCashbackSection: {
+    marginBottom: 20,
+  },
+  checkoutCashbackToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  checkoutCashbackToggleText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
+  },
+  checkoutToggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#374151',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  checkoutToggleActive: {
+    backgroundColor: '#5C8FFC',
+  },
+  checkoutToggleButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'white',
+    alignSelf: 'flex-start',
+  },
+  checkoutToggleButtonActive: {
+    alignSelf: 'flex-end',
+  },
+  checkoutCashbackAmount: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+  },
+  checkoutCashbackAmountLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  checkoutCashbackAmountInput: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: 'white',
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  checkoutOrderSummary: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  checkoutSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  checkoutSummaryLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  checkoutSummaryValue: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '500',
+  },
+  checkoutSummaryDiscount: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  checkoutSummaryDivider: {
+    height: 1,
+    backgroundColor: '#374151',
+    marginVertical: 12,
+  },
+  checkoutSummaryTotalLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  checkoutSummaryTotalValue: {
+    fontSize: 18,
+    color: '#5C8FFC',
+    fontWeight: 'bold',
+  },
+  checkoutSummaryCashback: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  checkoutBottomBar: {
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  checkoutButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  checkoutButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Error Screen Styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: '#000000',
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  errorButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
 });
