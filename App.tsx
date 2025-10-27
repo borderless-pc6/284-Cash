@@ -7,6 +7,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('home');
   const [walletSubScreen, setWalletSubScreen] = useState<string | null>(null);
+  const [profileSubScreen, setProfileSubScreen] = useState<string | null>(null);
+  const [currentPromoCategory, setCurrentPromoCategory] = useState<string>('all');
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [storeSubScreen, setStoreSubScreen] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function App() {
     { name: 'Ranking', icon: '📊', active: currentScreen === 'ranking', screen: 'ranking' },
     { name: 'Comparar', icon: '🔍', active: currentScreen === 'compare', screen: 'compare' },
     { name: 'Carteira', icon: '💰', active: currentScreen === 'wallet', screen: 'wallet' },
-    { name: 'Perfil', icon: '👤', active: false, screen: 'profile' },
+    { name: 'Perfil', icon: '👤', active: currentScreen === 'profile', screen: 'profile' },
   ];
 
   // Dados para filtro "Mais Vendas"
@@ -1888,6 +1890,525 @@ export default function App() {
     );
   };
 
+  // Componente da Tela de Promoções
+  const PromotionsScreen = () => {
+    // Categorias de promoção
+    const promoCategories = [
+      { id: 'all', name: 'Todas', icon: '🔥', count: 20 },
+      { id: 'flash', name: 'Flash Sales', icon: '⚡', count: 3 },
+      { id: 'partnerships', name: 'Parcerias', icon: '🎁', count: 5 },
+      { id: 'cashback', name: 'Cashback+', icon: '📈', count: 12 },
+    ];
+
+    // Dados das promoções
+    const promotions = [
+      {
+        id: 1,
+        storeName: 'Fashion Style',
+        category: 'flash',
+        badge: 'Flash Sale',
+        badgeColor: '#DC2626',
+        badgeIcon: '⚡',
+        title: 'Flash Sale - 50% OFF',
+        subtitle: 'Fashion Style',
+        description: 'Toda a coleção de verão com metade do preço',
+        timeLeft: '2h 30min',
+        cashback: '15%',
+        cashbackAmount: '15% Cashback',
+      },
+      {
+        id: 2,
+        storeName: 'Fashion Style + Tech Store',
+        category: 'partnerships',
+        badge: 'Parceria',
+        badgeColor: '#9333EA',
+        badgeIcon: '🎁',
+        title: 'Parceria Especial',
+        subtitle: 'Fashion Style + Tech Store',
+        description: 'Compre nas duas lojas e ganhe cashback combinado',
+        timeLeft: '5 dias',
+        cashback: '25%',
+        cashbackAmount: '25% Cashback',
+      },
+      {
+        id: 3,
+        storeName: 'Boutique Elegance',
+        category: 'cashback',
+        badge: 'Cashback',
+        badgeColor: '#5C8FFC',
+        badgeIcon: '📈',
+        title: 'Cashback Dobrado',
+        subtitle: 'Boutique Elegance',
+        description: 'Ganhe cashback em dobro em toda a loja',
+        timeLeft: '7 dias',
+        cashback: '30%',
+        cashbackAmount: '30% Cashback',
+      },
+      {
+        id: 4,
+        storeName: 'TechWorld',
+        category: 'flash',
+        badge: 'Flash Sale',
+        badgeColor: '#DC2626',
+        badgeIcon: '⚡',
+        title: 'Mega Oferta Tech',
+        subtitle: 'TechWorld',
+        description: 'Smartphones e eletrônicos com até 40% OFF',
+        timeLeft: '1h 15min',
+        cashback: '18%',
+        cashbackAmount: '18% Cashback',
+      },
+      {
+        id: 5,
+        storeName: 'Restaurante Sabor',
+        category: 'cashback',
+        badge: 'Cashback',
+        badgeColor: '#5C8FFC',
+        badgeIcon: '📈',
+        title: 'Cashback Triplo',
+        subtitle: 'Restaurante Sabor',
+        description: 'Coma bem e ganhe cashback triplo',
+        timeLeft: '3 dias',
+        cashback: '36%',
+        cashbackAmount: '36% Cashback',
+      },
+    ];
+
+    // Filtrar promoções baseado na categoria selecionada
+    const filteredPromotions = currentPromoCategory === 'all'
+      ? promotions
+      : promotions.filter(p => p.category === currentPromoCategory);
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.promotionsHeader}>
+          <View style={styles.promotionsHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.promotionsHeaderContent}>
+              <Text style={styles.promotionsTitle}>Promoções</Text>
+              <Text style={styles.promotionsSubtitle}>Ofertas especiais para você</Text>
+            </View>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.promotionsContent} showsVerticalScrollIndicator={false}>
+          {/* Category Cards */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.promoCategoriesContainer}
+            contentContainerStyle={styles.promoCategoriesContent}
+          >
+            {promoCategories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.promoCategoryCard,
+                  currentPromoCategory === category.id && styles.promoCategoryCardActive
+                ]}
+                onPress={() => setCurrentPromoCategory(category.id)}
+              >
+                <Text style={styles.promoCategoryIcon}>{category.icon}</Text>
+                <Text style={[
+                  styles.promoCategoryCount,
+                  currentPromoCategory === category.id && styles.promoCategoryCountActive
+                ]}>{category.count}</Text>
+                <Text style={[
+                  styles.promoCategoryName,
+                  currentPromoCategory === category.id && styles.promoCategoryNameActive
+                ]}>{category.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Promotions List */}
+          <View style={styles.promotionsList}>
+            {filteredPromotions.map((promo) => (
+              <View key={promo.id} style={styles.promotionCard}>
+                {/* Image Area */}
+                <View style={styles.promotionImageContainer}>
+                  {/* Placeholder for store image */}
+                  <View style={styles.promotionImagePlaceholder}>
+                    <Text style={styles.promotionImageIcon}>🏪</Text>
+                  </View>
+
+                  {/* Badge */}
+                  <View style={[
+                    styles.promotionBadge,
+                    { backgroundColor: promo.badgeColor }
+                  ]}>
+                    <Text style={styles.promotionBadgeIcon}>{promo.badgeIcon}</Text>
+                    <Text style={styles.promotionBadgeText}>{promo.badge}</Text>
+                  </View>
+
+                  {/* Title Overlay */}
+                  <View style={styles.promotionTitleOverlay}>
+                    <Text style={styles.promotionTitle}>{promo.title}</Text>
+                    <Text style={styles.promotionSubtitle}>{promo.subtitle}</Text>
+                  </View>
+
+                  {/* Cashback Indicator */}
+                  <View style={styles.promotionCashbackIndicator}>
+                    <Text style={styles.promotionCashbackText}>{promo.cashbackAmount}</Text>
+                  </View>
+                </View>
+
+                {/* Description */}
+                <View style={styles.promotionDescription}>
+                  <Text style={styles.promotionDescriptionText}>{promo.description}</Text>
+
+                  {/* Timer */}
+                  <View style={styles.promotionTimer}>
+                    <Text style={styles.promotionTimerIcon}>🕐</Text>
+                    <Text style={styles.promotionTimerText}>Termina em {promo.timeLeft}</Text>
+                  </View>
+
+                  {/* Action Button */}
+                  <TouchableOpacity style={styles.promotionButton}>
+                    <Text style={styles.promotionButtonIcon}>🏷️</Text>
+                    <Text style={styles.promotionButtonText}>Aproveitar Oferta</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => setCurrentScreen(item.screen)}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Minhas Compras
+  const MyPurchasesScreen = () => {
+    // Dados das compras
+    const purchases = [
+      {
+        id: 1,
+        storeName: 'TechWorld',
+        date: '15/01/2025',
+        amount: 299.99,
+        cashback: 29.99,
+        status: 'completed',
+        icon: '⚡',
+        iconBg: '#4CAF50',
+      },
+      {
+        id: 2,
+        storeName: 'Boutique Elegance',
+        date: '17/01/2025',
+        amount: 455.00,
+        cashback: 68.25,
+        status: 'completed',
+        icon: '👔',
+        iconBg: '#4CAF50',
+      },
+      {
+        id: 3,
+        storeName: 'Farmácia Saúde+',
+        date: '14/01/2025',
+        amount: 128.00,
+        cashback: 12.80,
+        status: 'pending',
+        icon: '💊',
+        iconBg: '#FFA726',
+      },
+      {
+        id: 4,
+        storeName: 'Restaurante Sabor',
+        date: '13/01/2025',
+        amount: 189.50,
+        cashback: 18.90,
+        status: 'completed',
+        icon: '🍽️',
+        iconBg: '#4CAF50',
+      },
+      {
+        id: 5,
+        storeName: 'Beleza & Estética',
+        date: '10/01/2025',
+        amount: 250.00,
+        cashback: 62.50,
+        status: 'completed',
+        icon: '💄',
+        iconBg: '#4CAF50',
+      },
+      {
+        id: 6,
+        storeName: 'Pet Shop Amigo',
+        date: '08/01/2025',
+        amount: 180.00,
+        cashback: 27.00,
+        status: 'completed',
+        icon: '🐾',
+        iconBg: '#4CAF50',
+      },
+    ];
+
+    const formatPrice = (price: number) => {
+      return `R$ ${price.toFixed(2).replace('.', ',')}`;
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.purchasesHeader}>
+          <View style={styles.purchasesHeaderTop}>
+            <TouchableOpacity onPress={() => setProfileSubScreen(null)}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.purchasesTitle}>Minhas Compras</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.purchasesContent} showsVerticalScrollIndicator={false}>
+          {/* Summary Card */}
+          <View style={styles.purchasesSummary}>
+            <View style={styles.purchasesSummaryItem}>
+              <Text style={styles.purchasesSummaryValue}>{purchases.length}</Text>
+              <Text style={styles.purchasesSummaryLabel}>Total de Compras</Text>
+            </View>
+            <View style={styles.purchasesSummaryDivider} />
+            <View style={styles.purchasesSummaryItem}>
+              <Text style={styles.purchasesSummaryValue}>
+                {formatPrice(purchases.reduce((sum, p) => sum + p.cashback, 0))}
+              </Text>
+              <Text style={styles.purchasesSummaryLabel}>Cashback Total</Text>
+            </View>
+          </View>
+
+          {/* Purchases List */}
+          <View style={styles.purchasesList}>
+            <Text style={styles.purchasesListTitle}>Histórico de Compras</Text>
+            {purchases.map((purchase) => (
+              <TouchableOpacity key={purchase.id} style={styles.purchaseCard}>
+                <View style={styles.purchaseCardLeft}>
+                  <View style={[styles.purchaseIcon, { backgroundColor: purchase.iconBg }]}>
+                    <Text style={styles.purchaseIconText}>{purchase.icon}</Text>
+                  </View>
+                  <View style={styles.purchaseInfo}>
+                    <Text style={styles.purchaseStore}>{purchase.storeName}</Text>
+                    <Text style={styles.purchaseDate}>{purchase.date}</Text>
+                    <TouchableOpacity style={[
+                      styles.purchaseStatus,
+                      purchase.status === 'completed' ? styles.purchaseStatusCompleted : styles.purchaseStatusPending
+                    ]}>
+                      <Text style={styles.purchaseStatusText}>
+                        {purchase.status === 'completed' ? '✓ Concluída' : '⏳ Pendente'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.purchaseCardRight}>
+                  <Text style={styles.purchaseAmount}>{formatPrice(purchase.amount)}</Text>
+                  <Text style={styles.purchaseCashback}>+{formatPrice(purchase.cashback)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => {
+                setCurrentScreen(item.screen);
+                setProfileSubScreen(null);
+              }}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Perfil
+  const ProfileScreen = () => {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+
+        {/* Header Section */}
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity onPress={() => setCurrentScreen('home')}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>Meu Perfil</Text>
+            <TouchableOpacity>
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Profile Info Section */}
+          <View style={styles.profileInfoSection}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarIcon}>👤</Text>
+            </View>
+            <Text style={styles.profileName}>Maria Silva</Text>
+            <Text style={styles.profileEmail}>maria.silva@email.com</Text>
+
+            <View style={styles.profileStats}>
+              <View style={styles.profileStatItem}>
+                <Text style={styles.profileStatValue}>R$ 245,80</Text>
+                <Text style={styles.profileStatLabel}>Cashback Total</Text>
+              </View>
+              <View style={styles.profileStatDivider} />
+              <View style={styles.profileStatItem}>
+                <Text style={styles.profileStatValue}>32</Text>
+                <Text style={styles.profileStatLabel}>Compras</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Main Content */}
+        <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+          {/* Achievements Section */}
+          <View style={styles.achievementsCard}>
+            <View style={styles.achievementsHeader}>
+              <Text style={styles.achievementsIcon}>🏆</Text>
+              <Text style={styles.achievementsTitle}>Conquistas</Text>
+            </View>
+            <View style={styles.achievementsButtons}>
+              <TouchableOpacity style={styles.achievementButton}>
+                <Text style={styles.achievementIcon}>⭐</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.achievementButton}>
+                <Text style={styles.achievementIcon}>📈</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.achievementButton}>
+                <Text style={styles.achievementIcon}>🏆</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Main Menu Section */}
+          <View style={styles.menuCard}>
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                  <Text style={styles.menuIconText}>👛</Text>
+                </View>
+                <View style={styles.menuItemInfo}>
+                  <Text style={styles.menuItemTitle}>Minha Carteira</Text>
+                  <Text style={styles.menuItemSubtitle}>R$ 245,80 disponível</Text>
+                </View>
+              </View>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => setProfileSubScreen('purchases')}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                  <Text style={styles.menuIconText}>🛍️</Text>
+                </View>
+                <View style={styles.menuItemInfo}>
+                  <Text style={styles.menuItemTitle}>Minhas Compras</Text>
+                  <Text style={styles.menuItemSubtitle}>Histórico completo</Text>
+                </View>
+              </View>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                  <Text style={styles.menuIconText}>🔔</Text>
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>3</Text>
+                  </View>
+                </View>
+                <View style={styles.menuItemInfo}>
+                  <Text style={styles.menuItemTitle}>Notificações</Text>
+                  <Text style={styles.menuItemSubtitle}>3 novas ofertas</Text>
+                </View>
+              </View>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Settings & Logout Section */}
+          <View style={styles.menuCard}>
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                  <Text style={styles.menuIconText}>⚙️</Text>
+                </View>
+                <Text style={styles.menuItemTitle}>Configurações</Text>
+              </View>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuItemIcon, { backgroundColor: '#DC2626' }]}>
+                  <Text style={styles.menuIconText}>🚪</Text>
+                </View>
+                <Text style={[styles.menuItemTitle, { color: '#DC2626' }]}>Sair</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Navigation */}
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.navItem}
+              onPress={() => setCurrentScreen(item.screen)}
+            >
+              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
+                {item.icon}
+              </Text>
+              <Text style={[styles.navText, item.active && styles.navTextActive]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Componente da Tela Home
   const HomeScreen = () => (
     <View style={styles.container}>
@@ -1949,6 +2470,26 @@ export default function App() {
             <Text style={styles.clubDescription}>Compre cashback e economize ainda mais!</Text>
             <TouchableOpacity style={styles.clubButton}>
               <Text style={styles.clubButtonText}>Conhecer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Promoções Banner */}
+        <View style={styles.promoBanner}>
+          <View style={styles.promoBannerContent}>
+            <View style={styles.promoBannerLeft}>
+              <Text style={styles.promoBannerIcon}>🔥</Text>
+              <View style={styles.promoBannerText}>
+                <Text style={styles.promoBannerTitle}>Promoções</Text>
+                <Text style={styles.promoBannerSubtitle}>Ofertas especiais para você</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.promoBannerButton}
+              onPress={() => setCurrentScreen('promotions')}
+            >
+              <Text style={styles.promoBannerButtonText}>Ver ofertas</Text>
+              <Text style={styles.promoBannerButtonIcon}>→</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2040,6 +2581,10 @@ export default function App() {
     return <CompareScreen />;
   }
 
+  if (currentScreen === 'promotions') {
+    return <PromotionsScreen />;
+  }
+
   if (currentScreen === 'wallet') {
     if (walletSubScreen === 'buy') {
       return <BuyCashbackScreen />;
@@ -2048,6 +2593,13 @@ export default function App() {
       return <VouchersScreen />;
     }
     return <WalletScreen />;
+  }
+
+  if (currentScreen === 'profile') {
+    if (profileSubScreen === 'purchases') {
+      return <MyPurchasesScreen />;
+    }
+    return <ProfileScreen />;
   }
 
   if (currentScreen === 'store-detail') {
@@ -2423,6 +2975,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: 'white',
+  },
+  promoBanner: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  promoBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promoBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  promoBannerIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  promoBannerText: {
+    flex: 1,
+  },
+  promoBannerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  promoBannerSubtitle: {
+    fontSize: 12,
+    color: 'white',
+    opacity: 0.9,
+  },
+  promoBannerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  promoBannerButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginRight: 6,
+  },
+  promoBannerButtonIcon: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
   },
   // Bottom Navigation
   bottomNav: {
@@ -4439,6 +5045,513 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   errorButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Profile Screen Styles
+  profileHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  profileHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+  },
+  profileTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  settingsIcon: {
+    fontSize: 24,
+    color: 'white',
+  },
+  profileInfoSection: {
+    alignItems: 'center',
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  profileAvatarIcon: {
+    fontSize: 40,
+    color: 'white',
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+    marginBottom: 24,
+  },
+  profileStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+  },
+  profileStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  profileStatValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  profileStatLabel: {
+    fontSize: 12,
+    color: 'white',
+    opacity: 0.9,
+  },
+  profileStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'white',
+    opacity: 0.3,
+  },
+  profileContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  achievementsCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  achievementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  achievementsIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  achievementsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  achievementsButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  achievementButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#2D3748',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  achievementIcon: {
+    fontSize: 24,
+  },
+  menuCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  menuIconText: {
+    fontSize: 20,
+  },
+  menuItemInfo: {
+    flex: 1,
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 2,
+  },
+  menuItemSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  arrowIcon: {
+    fontSize: 24,
+    color: '#9CA3AF',
+    marginLeft: 8,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1E293B',
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // My Purchases Screen Styles
+  purchasesHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  purchasesHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  purchasesTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  purchasesContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  purchasesSummary: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  purchasesSummaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  purchasesSummaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#2D3748',
+    marginHorizontal: 20,
+  },
+  purchasesSummaryValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  purchasesSummaryLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  purchasesList: {
+    marginBottom: 20,
+  },
+  purchasesListTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  purchaseCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  purchaseCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  purchaseIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  purchaseIconText: {
+    fontSize: 22,
+  },
+  purchaseInfo: {
+    flex: 1,
+  },
+  purchaseStore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  purchaseDate: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 6,
+  },
+  purchaseStatus: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  purchaseStatusCompleted: {
+    backgroundColor: '#10B981',
+  },
+  purchaseStatusPending: {
+    backgroundColor: '#F59E0B',
+  },
+  purchaseStatusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  purchaseCardRight: {
+    alignItems: 'flex-end',
+  },
+  purchaseAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  purchaseCashback: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#10B981',
+  },
+  // Promotions Screen Styles
+  promotionsHeader: {
+    backgroundColor: '#5C8FFC',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  promotionsHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promotionsHeaderContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  promotionsTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  promotionsSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+  },
+  promotionsContent: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  promoCategoriesContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  promoCategoriesContent: {
+    paddingRight: 20,
+  },
+  promoCategoryCard: {
+    width: 90,
+    height: 110,
+    backgroundColor: '#5C8FFC',
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promoCategoryCardActive: {
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
+    borderColor: '#5C8FFC',
+  },
+  promoCategoryIcon: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  promoCategoryCount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  promoCategoryCountActive: {
+    color: '#5C8FFC',
+  },
+  promoCategoryName: {
+    fontSize: 11,
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  promoCategoryNameActive: {
+    fontWeight: 'bold',
+  },
+  promotionsList: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  promotionCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  promotionImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+  },
+  promotionImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2D3748',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promotionImageIcon: {
+    fontSize: 48,
+    opacity: 0.5,
+  },
+  promotionBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  promotionBadgeIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  promotionBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  promotionTitleOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 16,
+  },
+  promotionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  promotionSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+  },
+  promotionCashbackIndicator: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(92, 143, 252, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  promotionCashbackText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  promotionDescription: {
+    padding: 16,
+  },
+  promotionDescriptionText: {
+    fontSize: 14,
+    color: 'white',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  promotionTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  promotionTimerIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  promotionTimerText: {
+    fontSize: 13,
+    color: 'white',
+    fontWeight: '500',
+  },
+  promotionButton: {
+    backgroundColor: '#5C8FFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  promotionButtonIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  promotionButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
