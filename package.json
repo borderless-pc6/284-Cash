@@ -6,17 +6,25 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export": "expo export --platform web",
+    "deploy:vercel": "npx vercel --prod --yes",
+    "deploy": "npm run export && npm run deploy:vercel",
+    "build": "npm run export"
   },
   "dependencies": {
     "expo": "~54.0.16",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
-    "react-native": "0.81.4"
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
+    "eas-cli": "^16.25.0",
+    "typescript": "~5.9.2",
+    "vercel": "^48.6.0"
   },
   "private": true
 }
