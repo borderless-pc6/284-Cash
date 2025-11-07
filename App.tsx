@@ -1,10 +1,53 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { useState } from 'react';
+// @ts-ignore - @expo/vector-icons is available through expo
+import { MaterialIcons } from '@expo/vector-icons';
+
+// Helper function to render icon
+const renderIcon = (icon: string, iconType: string = 'MaterialIcons', size: number = 24, color: string = 'white') => {
+  if (iconType === 'MaterialIcons') {
+    return <MaterialIcons name={icon as any} size={size} color={color} />;
+  }
+  return <Text>{icon}</Text>;
+};
+
+// Tipos e Interfaces
+type UserRole = 'cliente' | 'lojista';
+type Gender = 'masculino' | 'feminino' | 'outro' | 'prefiro-nao-informar';
+
+interface User {
+  id: string;
+  email: string;
+  cpf: string;
+  name: string;
+  role: UserRole;
+  birthDate?: string;
+  gender?: Gender;
+  address?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+}
+
+interface AuthState {
+  isLoggedIn: boolean;
+  user: User | null;
+  authScreen: 'login' | 'register' | 'register-client' | 'register-merchant';
+}
 
 export default function App() {
   const [searchText, setSearchText] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [authState, setAuthState] = useState<AuthState>({
+    isLoggedIn: false,
+    user: null,
+    authScreen: 'login',
+  });
   const [currentScreen, setCurrentScreen] = useState('home');
   const [walletSubScreen, setWalletSubScreen] = useState<string | null>(null);
   const [profileSubScreen, setProfileSubScreen] = useState<string | null>(null);
@@ -12,6 +55,78 @@ export default function App() {
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [storeSubScreen, setStoreSubScreen] = useState<string | null>(null);
+
+  // Estados para autenticação
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Estados para registro
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+  const [registerCpf, setRegisterCpf] = useState('');
+  const [registerBirthDate, setRegisterBirthDate] = useState('');
+  const [registerGender, setRegisterGender] = useState<Gender>('prefiro-nao-informar');
+  const [registerStreet, setRegisterStreet] = useState('');
+  const [registerNumber, setRegisterNumber] = useState('');
+  const [registerComplement, setRegisterComplement] = useState('');
+  const [registerNeighborhood, setRegisterNeighborhood] = useState('');
+  const [registerCity, setRegisterCity] = useState('');
+  const [registerState, setRegisterState] = useState('');
+  const [registerZipCode, setRegisterZipCode] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+
+  // Funções de validação
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateCPF = (cpf: string): boolean => {
+    const cleanCPF = cpf.replace(/[^\d]/g, '');
+    if (cleanCPF.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cleanCPF)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    }
+    let digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(cleanCPF.charAt(9))) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
+    }
+    digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(cleanCPF.charAt(10))) return false;
+
+    return true;
+  };
+
+  const formatCPF = (value: string): string => {
+    const numbers = value.replace(/[^\d]/g, '');
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+    if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+  };
+
+  const formatZipCode = (value: string): string => {
+    const numbers = value.replace(/[^\d]/g, '');
+    if (numbers.length <= 5) return numbers;
+    return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
+  };
+
+  const formatDate = (value: string): string => {
+    const numbers = value.replace(/[^\d]/g, '');
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+    return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -26,8 +141,13 @@ export default function App() {
           text: 'Sair',
           style: 'destructive',
           onPress: () => {
-            console.log('Logout realizado com sucesso!');
-            setIsLoggedIn(false);
+            setAuthState({
+              isLoggedIn: false,
+              user: null,
+              authScreen: 'login',
+            });
+            setLoginEmail('');
+            setLoginPassword('');
           },
         },
       ]
@@ -35,27 +155,141 @@ export default function App() {
   };
 
   const handleLogin = () => {
-    console.log('Login realizado com sucesso!');
-    setIsLoggedIn(true);
+    if (!loginEmail.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha o e-mail ou CPF');
+      return;
+    }
+    if (!loginPassword.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha a senha');
+      return;
+    }
+
+    // Validação básica (em produção, isso seria uma chamada à API)
+    const isValidEmail = validateEmail(loginEmail);
+    const isValidCPF = validateCPF(loginEmail.replace(/[^\d]/g, ''));
+
+    if (!isValidEmail && !isValidCPF) {
+      Alert.alert('Erro', 'E-mail ou CPF inválido');
+      return;
+    }
+
+    // Simulação de login bem-sucedido
+    // Em produção, isso viria de uma API
+    const mockUser: User = {
+      id: '1',
+      email: isValidEmail ? loginEmail : 'usuario@exemplo.com',
+      cpf: isValidCPF ? loginEmail.replace(/[^\d]/g, '') : '00000000000',
+      name: 'Usuário Teste',
+      role: 'cliente',
+    };
+
+    setAuthState({
+      isLoggedIn: true,
+      user: mockUser,
+      authScreen: 'login',
+    });
+
+    Alert.alert('Sucesso', 'Login realizado com sucesso!');
+  };
+
+  const handleRegister = () => {
+    if (!registerEmail.trim() || !validateEmail(registerEmail)) {
+      Alert.alert('Erro', 'Por favor, insira um e-mail válido');
+      return;
+    }
+    if (!registerPassword.trim() || registerPassword.length < 6) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    if (registerPassword !== registerConfirmPassword) {
+      Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
+    if (!registerName.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha o nome completo');
+      return;
+    }
+    if (!registerCpf.trim() || !validateCPF(registerCpf.replace(/[^\d]/g, ''))) {
+      Alert.alert('Erro', 'Por favor, insira um CPF válido');
+      return;
+    }
+
+    // Se for cliente, validar campos adicionais
+    if (selectedRole === 'cliente') {
+      if (!registerBirthDate.trim()) {
+        Alert.alert('Erro', 'Por favor, preencha a data de nascimento');
+        return;
+      }
+      if (!registerStreet.trim() || !registerNumber.trim() || !registerNeighborhood.trim() ||
+        !registerCity.trim() || !registerState.trim() || !registerZipCode.trim()) {
+        Alert.alert('Erro', 'Por favor, preencha todos os campos do endereço');
+        return;
+      }
+    }
+
+    // Criar usuário
+    const newUser: User = {
+      id: Date.now().toString(),
+      email: registerEmail,
+      cpf: registerCpf.replace(/[^\d]/g, ''),
+      name: registerName,
+      role: selectedRole || 'cliente',
+      birthDate: registerBirthDate,
+      gender: registerGender,
+      address: selectedRole === 'cliente' ? {
+        street: registerStreet,
+        number: registerNumber,
+        complement: registerComplement,
+        neighborhood: registerNeighborhood,
+        city: registerCity,
+        state: registerState,
+        zipCode: registerZipCode.replace(/[^\d]/g, ''),
+      } : undefined,
+    };
+
+    setAuthState({
+      isLoggedIn: true,
+      user: newUser,
+      authScreen: 'login',
+    });
+
+    Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
+
+    // Limpar formulário
+    setRegisterEmail('');
+    setRegisterPassword('');
+    setRegisterConfirmPassword('');
+    setRegisterName('');
+    setRegisterCpf('');
+    setRegisterBirthDate('');
+    setRegisterGender('prefiro-nao-informar');
+    setRegisterStreet('');
+    setRegisterNumber('');
+    setRegisterComplement('');
+    setRegisterNeighborhood('');
+    setRegisterCity('');
+    setRegisterState('');
+    setRegisterZipCode('');
+    setSelectedRole(null);
   };
 
   const categories = [
-    { name: 'Vestuário', icon: '👔' },
-    { name: 'Alimentação', icon: '🍽️' },
-    { name: 'Eletrônicos', icon: '📱' },
-    { name: 'Farmácia', icon: '💊' },
-    { name: 'Beleza', icon: '💄' },
-    { name: 'Pet Shop', icon: '🐾' },
-    { name: 'Academia', icon: '💪' },
-    { name: 'Mais', icon: '+' },
+    { name: 'Vestuário', icon: 'checkroom', iconType: 'MaterialIcons' },
+    { name: 'Alimentação', icon: 'restaurant', iconType: 'MaterialIcons' },
+    { name: 'Eletrônicos', icon: 'smartphone', iconType: 'MaterialIcons' },
+    { name: 'Farmácia', icon: 'local-pharmacy', iconType: 'MaterialIcons' },
+    { name: 'Beleza', icon: 'face', iconType: 'MaterialIcons' },
+    { name: 'Pet Shop', icon: 'pets', iconType: 'MaterialIcons' },
+    { name: 'Academia', icon: 'fitness-center', iconType: 'MaterialIcons' },
+    { name: 'Mais', icon: 'add', iconType: 'MaterialIcons' },
   ];
 
   const bottomNavItems = [
-    { name: 'Início', icon: '🏠', active: currentScreen === 'home', screen: 'home' },
-    { name: 'Ranking', icon: '📊', active: currentScreen === 'ranking', screen: 'ranking' },
-    { name: 'Comparar', icon: '🔍', active: currentScreen === 'compare', screen: 'compare' },
-    { name: 'Carteira', icon: '💰', active: currentScreen === 'wallet', screen: 'wallet' },
-    { name: 'Perfil', icon: '👤', active: currentScreen === 'profile', screen: 'profile' },
+    { name: 'Início', icon: 'home', iconType: 'MaterialIcons', active: currentScreen === 'home', screen: 'home' },
+    { name: 'Ranking', icon: 'bar-chart', iconType: 'MaterialIcons', active: currentScreen === 'ranking', screen: 'ranking' },
+    { name: 'Comparar', icon: 'search', iconType: 'MaterialIcons', active: currentScreen === 'compare', screen: 'compare' },
+    { name: 'Carteira', icon: 'account-balance-wallet', iconType: 'MaterialIcons', active: currentScreen === 'wallet', screen: 'wallet' },
+    { name: 'Perfil', icon: 'person', iconType: 'MaterialIcons', active: currentScreen === 'profile', screen: 'profile' },
   ];
 
   // Dados para filtro "Mais Vendas"
@@ -67,7 +301,8 @@ export default function App() {
       sales: 1247,
       rating: 4.9,
       cashback: '10%',
-      logo: '⚡',
+      logo: 'flash-on',
+      logoType: 'MaterialIcons',
       logoBg: '#4CAF50',
       position: 1,
       isTop3: true,
@@ -79,7 +314,8 @@ export default function App() {
       sales: 1189,
       rating: 4.8,
       cashback: '15%',
-      logo: '👔',
+      logo: 'checkroom',
+      logoType: 'MaterialIcons',
       logoBg: '#9E9E9E',
       position: 2,
       isTop3: true,
@@ -91,7 +327,8 @@ export default function App() {
       sales: 1056,
       rating: 4.7,
       cashback: '12%',
-      logo: '🍽️',
+      logo: 'restaurant',
+      logoType: 'MaterialIcons',
       logoBg: '#8D6E63',
       position: 3,
       isTop3: true,
@@ -103,7 +340,8 @@ export default function App() {
       sales: 987,
       rating: 4.7,
       cashback: '8%',
-      logo: '💊',
+      logo: 'local-pharmacy',
+      logoType: 'MaterialIcons',
       logoBg: '#4CAF50',
       position: 4,
       isTop3: false,
@@ -115,7 +353,8 @@ export default function App() {
       sales: 876,
       rating: 4.6,
       cashback: '20%',
-      logo: '💪',
+      logo: 'fitness-center',
+      logoType: 'MaterialIcons',
       logoBg: '#2196F3',
       position: 5,
       isTop3: false,
@@ -131,7 +370,8 @@ export default function App() {
       sales: 876,
       rating: 4.6,
       cashback: '20%',
-      logo: '💪',
+      logo: 'fitness-center',
+      logoType: 'MaterialIcons',
       logoBg: '#2196F3',
       position: 1,
       isTop3: true,
@@ -143,7 +383,8 @@ export default function App() {
       sales: 1189,
       rating: 4.8,
       cashback: '15%',
-      logo: '👔',
+      logo: 'checkroom',
+      logoType: 'MaterialIcons',
       logoBg: '#9E9E9E',
       position: 2,
       isTop3: true,
@@ -155,7 +396,8 @@ export default function App() {
       sales: 1056,
       rating: 4.7,
       cashback: '12%',
-      logo: '🍽️',
+      logo: 'restaurant',
+      logoType: 'MaterialIcons',
       logoBg: '#8D6E63',
       position: 3,
       isTop3: true,
@@ -167,7 +409,8 @@ export default function App() {
       sales: 1247,
       rating: 4.9,
       cashback: '10%',
-      logo: '⚡',
+      logo: 'flash-on',
+      logoType: 'MaterialIcons',
       logoBg: '#4CAF50',
       position: 4,
       isTop3: false,
@@ -179,7 +422,8 @@ export default function App() {
       sales: 987,
       rating: 4.7,
       cashback: '8%',
-      logo: '💊',
+      logo: 'local-pharmacy',
+      logoType: 'MaterialIcons',
       logoBg: '#4CAF50',
       position: 5,
       isTop3: false,
@@ -410,7 +654,7 @@ export default function App() {
             </TouchableOpacity>
             <Text style={styles.storeDetailTitle}>{selectedStore.name}</Text>
             <TouchableOpacity>
-              <Text style={styles.shareIcon}>📤</Text>
+              <MaterialIcons name="share" size={20} color="white" />
             </TouchableOpacity>
           </View>
 
@@ -441,19 +685,19 @@ export default function App() {
             {/* Store Details */}
             <View style={styles.storeDetailItems}>
               <View style={styles.storeDetailItem}>
-                <Text style={styles.storeDetailItemIcon}>📍</Text>
+                <MaterialIcons name="place" size={18} color="white" />
                 <Text style={styles.storeDetailItemText}>{selectedStore.address}</Text>
               </View>
               <View style={styles.storeDetailItem}>
-                <Text style={styles.storeDetailItemIcon}>📞</Text>
+                <MaterialIcons name="phone" size={18} color="white" />
                 <Text style={styles.storeDetailItemText}>{selectedStore.phone}</Text>
               </View>
               <View style={styles.storeDetailItem}>
-                <Text style={styles.storeDetailItemIcon}>🕒</Text>
+                <MaterialIcons name="access-time" size={18} color="white" />
                 <Text style={styles.storeDetailItemText}>{selectedStore.hours}</Text>
               </View>
               <View style={styles.storeDetailItem}>
-                <Text style={styles.storeDetailItemIcon}>⭐</Text>
+                <MaterialIcons name="star" size={18} color="white" />
                 <Text style={styles.storeDetailItemText}>{selectedStore.rating} ({selectedStore.distance})</Text>
               </View>
             </View>
@@ -462,18 +706,18 @@ export default function App() {
           {/* Action Buttons */}
           <View style={styles.storeActionButtons}>
             <TouchableOpacity style={styles.storeActionButton}>
-              <Text style={styles.storeActionButtonIcon}>📞</Text>
+              <MaterialIcons name="phone" size={18} color="white" />
               <Text style={styles.storeActionButtonText}>Ligar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.storeActionButton}>
-              <Text style={styles.storeActionButtonIcon}>🗺️</Text>
+              <MaterialIcons name="map" size={18} color="white" />
               <Text style={styles.storeActionButtonText}>Navegar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.storeActionButtonPrimary}
               onPress={() => setStoreSubScreen('products')}
             >
-              <Text style={styles.storeActionButtonIcon}>🛍️</Text>
+              <MaterialIcons name="shopping-bag" size={18} color="white" />
               <Text style={styles.storeActionButtonTextPrimary}>Ver Produtos</Text>
             </TouchableOpacity>
           </View>
@@ -505,7 +749,10 @@ export default function App() {
                     <Text style={styles.productPreviewOriginalPrice}>{formatPrice(product.originalPrice)}</Text>
                   </View>
                   <View style={styles.productPreviewRating}>
-                    <Text style={styles.productPreviewRatingText}>⭐ {product.rating}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialIcons name="star" size={14} color="#FFD700" />
+                      <Text style={styles.productPreviewRatingText}> {product.rating}</Text>
+                    </View>
                     <Text style={styles.productPreviewReviewsText}>({product.reviews})</Text>
                   </View>
                 </TouchableOpacity>
@@ -614,7 +861,10 @@ export default function App() {
                   </View>
 
                   <View style={styles.productRating}>
-                    <Text style={styles.productRatingText}>⭐ {product.rating}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialIcons name="star" size={14} color="#FFD700" />
+                      <Text style={styles.productRatingText}> {product.rating}</Text>
+                    </View>
                     <Text style={styles.productReviewsText}>({product.reviews})</Text>
                   </View>
 
@@ -684,7 +934,7 @@ export default function App() {
             </TouchableOpacity>
             <Text style={styles.productDetailTitle}>Detalhes do Produto</Text>
             <TouchableOpacity>
-              <Text style={styles.favoriteIcon}>❤️</Text>
+              <MaterialIcons name="favorite" size={20} color="#DC2626" />
             </TouchableOpacity>
           </View>
         </View>
@@ -702,7 +952,10 @@ export default function App() {
             <Text style={styles.productDetailCategory}>{selectedProduct.category}</Text>
 
             <View style={styles.productDetailRating}>
-              <Text style={styles.productDetailRatingText}>⭐ {selectedProduct.rating}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="star" size={16} color="#FFD700" />
+                <Text style={styles.productDetailRatingText}> {selectedProduct.rating}</Text>
+              </View>
               <Text style={styles.productDetailReviewsText}>({selectedProduct.reviews} avaliações)</Text>
             </View>
 
@@ -719,7 +972,7 @@ export default function App() {
 
             {/* Cashback Info */}
             <View style={styles.productDetailCashback}>
-              <Text style={styles.productDetailCashbackIcon}>💰</Text>
+              <MaterialIcons name="account-balance-wallet" size={20} color="white" />
               <Text style={styles.productDetailCashbackText}>
                 Ganhe {selectedStore.cashback} de cashback ({formatPrice(cashbackAmount)})
               </Text>
@@ -857,9 +1110,9 @@ export default function App() {
     const total = subtotal - cashbackUsed;
 
     const paymentMethods = [
-      { id: 'cashback', name: 'Cashback', icon: '💰', description: 'Usar saldo disponível' },
-      { id: 'pix', name: 'PIX', icon: '⚡', description: 'Aprovação instantânea' },
-      { id: 'credit', name: 'Cartão de Crédito', icon: '💳', description: 'Parcelamento disponível' },
+      { id: 'cashback', name: 'Cashback', icon: 'account-balance-wallet', iconType: 'MaterialIcons', description: 'Usar saldo disponível' },
+      { id: 'pix', name: 'PIX', icon: 'flash-on', iconType: 'MaterialIcons', description: 'Aprovação instantânea' },
+      { id: 'credit', name: 'Cartão de Crédito', icon: 'credit-card', iconType: 'MaterialIcons', description: 'Parcelamento disponível' },
     ];
 
     return (
@@ -910,7 +1163,7 @@ export default function App() {
                 onPress={() => setSelectedPaymentMethod(method.id)}
               >
                 <View style={styles.checkoutPaymentMethodLeft}>
-                  <Text style={styles.checkoutPaymentMethodIcon}>{method.icon}</Text>
+                  <MaterialIcons name={method.icon as any} size={20} color="white" />
                   <View style={styles.checkoutPaymentMethodInfo}>
                     <Text style={styles.checkoutPaymentMethodName}>{method.name}</Text>
                     <Text style={styles.checkoutPaymentMethodDescription}>{method.description}</Text>
@@ -992,8 +1245,6 @@ export default function App() {
 
   // Componente da Tela de Login
   const LoginScreen = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     return (
@@ -1004,8 +1255,10 @@ export default function App() {
         <View style={styles.loginHeaderSection}>
           <View style={styles.loginLogoContainer}>
             <View style={styles.loginLogoBackground}>
-              <Text style={styles.loginWalletIcon}>💳</Text>
-              <Text style={styles.loginStarIcon}>✨</Text>
+              <MaterialIcons name="account-balance-wallet" size={40} color="white" />
+              <View style={styles.loginStarIcon}>
+                <MaterialIcons name="star" size={20} color="#1F2937" />
+              </View>
             </View>
           </View>
 
@@ -1019,13 +1272,13 @@ export default function App() {
           <View style={styles.loginInputContainer}>
             <Text style={styles.loginInputLabel}>E-mail ou CPF</Text>
             <View style={styles.loginInputWrapper}>
-              <Text style={styles.loginInputIcon}>✉️</Text>
+              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
               <TextInput
                 style={styles.loginTextInput}
                 placeholder="seu@email.com ou 000.000.000-0"
                 placeholderTextColor="#9CA3AF"
-                value={email}
-                onChangeText={setEmail}
+                value={loginEmail}
+                onChangeText={setLoginEmail}
                 keyboardType="email-address"
               />
             </View>
@@ -1040,17 +1293,21 @@ export default function App() {
               </TouchableOpacity>
             </View>
             <View style={styles.loginInputWrapper}>
-              <Text style={styles.loginInputIcon}>🔒</Text>
+              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
               <TextInput
                 style={styles.loginTextInput}
                 placeholder="Digite sua senha"
                 placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={setPassword}
+                value={loginPassword}
+                onChangeText={setLoginPassword}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Text style={styles.loginEyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                <MaterialIcons
+                  name={showPassword ? "visibility" : "visibility-off"}
+                  size={18}
+                  color="#6B7280"
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -1084,11 +1341,530 @@ export default function App() {
         {/* Footer */}
         <View style={styles.loginFooter}>
           <Text style={styles.loginFooterText}>Não tem uma conta? </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'register' })}>
             <Text style={styles.loginRegisterLink}>Cadastre-se</Text>
           </TouchableOpacity>
         </View>
       </View>
+    );
+  };
+
+  // Componente da Tela de Seleção de Perfil
+  const RegisterRoleScreen = () => {
+    return (
+      <View style={styles.loginContainer}>
+        <StatusBar style="dark" />
+
+        {/* Header Section */}
+        <View style={styles.loginHeaderSection}>
+          <TouchableOpacity
+            onPress={() => setAuthState({ ...authState, authScreen: 'login' })}
+            style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
+          >
+            <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.loginLogoContainer}>
+            <View style={styles.loginLogoBackground}>
+              <MaterialIcons name="account-balance-wallet" size={40} color="white" />
+              <View style={styles.loginStarIcon}>
+                <MaterialIcons name="star" size={20} color="#1F2937" />
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.loginWelcomeText}>Criar Conta</Text>
+          <Text style={styles.loginSubtitleText}>Escolha o tipo de conta que deseja criar</Text>
+        </View>
+
+        {/* Role Selection Cards */}
+        <View style={styles.registerRoleContainer}>
+          <TouchableOpacity
+            style={[styles.registerRoleCard, selectedRole === 'cliente' && styles.registerRoleCardSelected]}
+            onPress={() => {
+              setSelectedRole('cliente');
+              setAuthState({ ...authState, authScreen: 'register-client' });
+            }}
+          >
+            <MaterialIcons name="person" size={48} color={selectedRole === 'cliente' ? '#5C8FFC' : '#6B7280'} style={{ marginBottom: 16 }} />
+            <Text style={styles.registerRoleTitle}>Cliente</Text>
+            <Text style={styles.registerRoleDescription}>
+              Compre em lojas locais e ganhe cashback em cada compra
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.registerRoleCard, selectedRole === 'lojista' && styles.registerRoleCardSelected]}
+            onPress={() => {
+              setSelectedRole('lojista');
+              setAuthState({ ...authState, authScreen: 'register-merchant' });
+            }}
+          >
+            <MaterialIcons name="store" size={48} color={selectedRole === 'lojista' ? '#5C8FFC' : '#6B7280'} style={{ marginBottom: 16 }} />
+            <Text style={styles.registerRoleTitle}>Lojista</Text>
+            <Text style={styles.registerRoleDescription}>
+              Cadastre sua loja e ofereça cashback para seus clientes
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.loginFooter}>
+          <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
+          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'login' })}>
+            <Text style={styles.loginRegisterLink}>Entrar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Componente da Tela de Cadastro de Cliente
+  const RegisterClientScreen = () => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    return (
+      <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
+        <StatusBar style="dark" />
+
+        {/* Header Section */}
+        <View style={styles.loginHeaderSection}>
+          <TouchableOpacity
+            onPress={() => setAuthState({ ...authState, authScreen: 'register' })}
+            style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
+          >
+            <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.loginLogoContainer}>
+            <View style={styles.loginLogoBackground}>
+              <MaterialIcons name="account-balance-wallet" size={40} color="white" />
+            </View>
+          </View>
+
+          <Text style={styles.loginWelcomeText}>Cadastro de Cliente</Text>
+          <Text style={styles.loginSubtitleText}>Preencha seus dados para começar</Text>
+        </View>
+
+        {/* Register Form */}
+        <View style={styles.loginFormCard}>
+          {/* Nome Completo */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Nome Completo *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="person" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Seu nome completo"
+                placeholderTextColor="#9CA3AF"
+                value={registerName}
+                onChangeText={setRegisterName}
+              />
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>E-mail *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="seu@email.com"
+                placeholderTextColor="#9CA3AF"
+                value={registerEmail}
+                onChangeText={setRegisterEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* CPF */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>CPF *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="000.000.000-00"
+                placeholderTextColor="#9CA3AF"
+                value={registerCpf}
+                onChangeText={(text) => {
+                  const formatted = formatCPF(text);
+                  if (formatted.replace(/[^\d]/g, '').length <= 11) {
+                    setRegisterCpf(formatted);
+                  }
+                }}
+                keyboardType="numeric"
+                maxLength={14}
+              />
+            </View>
+          </View>
+
+          {/* Data de Nascimento */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Data de Nascimento *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="calendar-today" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor="#9CA3AF"
+                value={registerBirthDate}
+                onChangeText={(text) => {
+                  const formatted = formatDate(text);
+                  if (formatted.replace(/[^\d]/g, '').length <= 8) {
+                    setRegisterBirthDate(formatted);
+                  }
+                }}
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+          </View>
+
+          {/* Sexo */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Sexo</Text>
+            <View style={styles.registerGenderContainer}>
+              {(['masculino', 'feminino', 'outro', 'prefiro-nao-informar'] as Gender[]).map((gender) => (
+                <TouchableOpacity
+                  key={gender}
+                  style={[
+                    styles.registerGenderOption,
+                    registerGender === gender && styles.registerGenderOptionSelected
+                  ]}
+                  onPress={() => setRegisterGender(gender)}
+                >
+                  <Text style={[
+                    styles.registerGenderText,
+                    registerGender === gender && styles.registerGenderTextSelected
+                  ]}>
+                    {gender === 'masculino' ? 'Masculino' :
+                      gender === 'feminino' ? 'Feminino' :
+                        gender === 'outro' ? 'Outro' : 'Prefiro não informar'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Endereço - Rua */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Rua *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="place" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Nome da rua"
+                placeholderTextColor="#9CA3AF"
+                value={registerStreet}
+                onChangeText={setRegisterStreet}
+              />
+            </View>
+          </View>
+
+          {/* Número e Complemento */}
+          <View style={styles.registerAddressRow}>
+            <View style={[styles.loginInputContainer, { flex: 1, marginRight: 10 }]}>
+              <Text style={styles.loginInputLabel}>Número *</Text>
+              <View style={styles.loginInputWrapper}>
+                <TextInput
+                  style={styles.loginTextInput}
+                  placeholder="123"
+                  placeholderTextColor="#9CA3AF"
+                  value={registerNumber}
+                  onChangeText={setRegisterNumber}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View style={[styles.loginInputContainer, { flex: 1 }]}>
+              <Text style={styles.loginInputLabel}>Complemento</Text>
+              <View style={styles.loginInputWrapper}>
+                <TextInput
+                  style={styles.loginTextInput}
+                  placeholder="Apto, Bloco..."
+                  placeholderTextColor="#9CA3AF"
+                  value={registerComplement}
+                  onChangeText={setRegisterComplement}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Bairro */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Bairro *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="location-city" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Nome do bairro"
+                placeholderTextColor="#9CA3AF"
+                value={registerNeighborhood}
+                onChangeText={setRegisterNeighborhood}
+              />
+            </View>
+          </View>
+
+          {/* Cidade e Estado */}
+          <View style={styles.registerAddressRow}>
+            <View style={[styles.loginInputContainer, { flex: 2, marginRight: 10 }]}>
+              <Text style={styles.loginInputLabel}>Cidade *</Text>
+              <View style={styles.loginInputWrapper}>
+                <TextInput
+                  style={styles.loginTextInput}
+                  placeholder="Cidade"
+                  placeholderTextColor="#9CA3AF"
+                  value={registerCity}
+                  onChangeText={setRegisterCity}
+                />
+              </View>
+            </View>
+            <View style={[styles.loginInputContainer, { flex: 1 }]}>
+              <Text style={styles.loginInputLabel}>UF *</Text>
+              <View style={styles.loginInputWrapper}>
+                <TextInput
+                  style={styles.loginTextInput}
+                  placeholder="SP"
+                  placeholderTextColor="#9CA3AF"
+                  value={registerState}
+                  onChangeText={(text) => setRegisterState(text.toUpperCase().slice(0, 2))}
+                  maxLength={2}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* CEP */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>CEP *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="local-post-office" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="00000-000"
+                placeholderTextColor="#9CA3AF"
+                value={registerZipCode}
+                onChangeText={(text) => {
+                  const formatted = formatZipCode(text);
+                  if (formatted.replace(/[^\d]/g, '').length <= 8) {
+                    setRegisterZipCode(formatted);
+                  }
+                }}
+                keyboardType="numeric"
+                maxLength={9}
+              />
+            </View>
+          </View>
+
+          {/* Senha */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Senha *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#9CA3AF"
+                value={registerPassword}
+                onChangeText={setRegisterPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <MaterialIcons
+                  name={showPassword ? "visibility" : "visibility-off"}
+                  size={18}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirmar Senha */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Digite a senha novamente"
+                placeholderTextColor="#9CA3AF"
+                value={registerConfirmPassword}
+                onChangeText={setRegisterConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <MaterialIcons
+                  name={showConfirmPassword ? "visibility" : "visibility-off"}
+                  size={18}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Register Button */}
+          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
+            <Text style={styles.loginButtonText}>Cadastrar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.loginFooter}>
+          <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
+          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'login' })}>
+            <Text style={styles.loginRegisterLink}>Entrar</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // Componente da Tela de Cadastro de Lojista (versão simplificada)
+  const RegisterMerchantScreen = () => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    return (
+      <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
+        <StatusBar style="dark" />
+
+        {/* Header Section */}
+        <View style={styles.loginHeaderSection}>
+          <TouchableOpacity
+            onPress={() => setAuthState({ ...authState, authScreen: 'register' })}
+            style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
+          >
+            <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.loginLogoContainer}>
+            <View style={styles.loginLogoBackground}>
+              <MaterialIcons name="store" size={40} color="white" />
+            </View>
+          </View>
+
+          <Text style={styles.loginWelcomeText}>Cadastro de Lojista</Text>
+          <Text style={styles.loginSubtitleText}>Preencha os dados da sua loja</Text>
+        </View>
+
+        {/* Register Form */}
+        <View style={styles.loginFormCard}>
+          {/* Nome da Loja */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Nome da Loja *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="store" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Nome da sua loja"
+                placeholderTextColor="#9CA3AF"
+                value={registerName}
+                onChangeText={setRegisterName}
+              />
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>E-mail *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="seu@email.com"
+                placeholderTextColor="#9CA3AF"
+                value={registerEmail}
+                onChangeText={setRegisterEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* CPF/CNPJ */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>CPF/CNPJ *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                placeholderTextColor="#9CA3AF"
+                value={registerCpf}
+                onChangeText={(text) => {
+                  const formatted = formatCPF(text);
+                  if (formatted.replace(/[^\d]/g, '').length <= 14) {
+                    setRegisterCpf(formatted);
+                  }
+                }}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          {/* Senha */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Senha *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#9CA3AF"
+                value={registerPassword}
+                onChangeText={setRegisterPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <MaterialIcons
+                  name={showPassword ? "visibility" : "visibility-off"}
+                  size={18}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirmar Senha */}
+          <View style={styles.loginInputContainer}>
+            <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
+            <View style={styles.loginInputWrapper}>
+              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+              <TextInput
+                style={styles.loginTextInput}
+                placeholder="Digite a senha novamente"
+                placeholderTextColor="#9CA3AF"
+                value={registerConfirmPassword}
+                onChangeText={setRegisterConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <MaterialIcons
+                  name={showConfirmPassword ? "visibility" : "visibility-off"}
+                  size={18}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Register Button */}
+          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
+            <Text style={styles.loginButtonText}>Cadastrar Loja</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.loginFooter}>
+          <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
+          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'login' })}>
+            <Text style={styles.loginRegisterLink}>Entrar</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     );
   };
 
@@ -1147,7 +1923,7 @@ export default function App() {
           {/* Top 3 Section */}
           <View style={styles.top3Section}>
             <View style={styles.top3Header}>
-              <Text style={styles.top3Icon}>👑</Text>
+              <MaterialIcons name="workspace-premium" size={24} color="#FFD700" />
               <Text style={styles.top3Title}>{getTop3Title()}</Text>
             </View>
 
@@ -1155,10 +1931,10 @@ export default function App() {
               {/* 2nd Place */}
               <View style={styles.top3Item}>
                 <View style={styles.top3Medal}>
-                  <Text style={styles.top3MedalIcon}>🥈</Text>
+                  <MaterialIcons name="workspace-premium" size={20} color="#C0C0C0" />
                 </View>
                 <View style={[styles.top3Logo, { backgroundColor: top3Stores[1].logoBg }]}>
-                  <Text style={styles.top3LogoIcon}>{top3Stores[1].logo}</Text>
+                  <MaterialIcons name={top3Stores[1].logo as any} size={24} color="white" />
                 </View>
                 <Text style={styles.top3StoreName}>{top3Stores[1].name}</Text>
                 <Text style={styles.top3Sales}>
@@ -1169,10 +1945,10 @@ export default function App() {
               {/* 1st Place */}
               <View style={styles.top3Item}>
                 <View style={styles.top3Crown}>
-                  <Text style={styles.top3CrownIcon}>👑</Text>
+                  <MaterialIcons name="workspace-premium" size={24} color="#FFD700" />
                 </View>
                 <View style={[styles.top3Logo, styles.top3LogoFirst, { backgroundColor: top3Stores[0].logoBg }]}>
-                  <Text style={styles.top3LogoIcon}>{top3Stores[0].logo}</Text>
+                  <MaterialIcons name={top3Stores[0].logo as any} size={24} color="white" />
                 </View>
                 <View style={styles.top3Badge}>
                   <Text style={styles.top3BadgeText}>
@@ -1188,10 +1964,10 @@ export default function App() {
               {/* 3rd Place */}
               <View style={styles.top3Item}>
                 <View style={styles.top3Medal}>
-                  <Text style={styles.top3MedalIcon}>🥉</Text>
+                  <MaterialIcons name="workspace-premium" size={20} color="#CD7F32" />
                 </View>
                 <View style={[styles.top3Logo, { backgroundColor: top3Stores[2].logoBg }]}>
-                  <Text style={styles.top3LogoIcon}>{top3Stores[2].logo}</Text>
+                  <MaterialIcons name={top3Stores[2].logo as any} size={24} color="white" />
                 </View>
                 <Text style={styles.top3StoreName}>{top3Stores[2].name}</Text>
                 <Text style={styles.top3Sales}>
@@ -1208,18 +1984,18 @@ export default function App() {
                 <View style={styles.rankingItemLeft}>
                   {store.position <= 3 ? (
                     store.position === 1 ? (
-                      <Text style={styles.rankingCrownIcon}>👑</Text>
+                      <MaterialIcons name="workspace-premium" size={20} color="#FFD700" />
                     ) : store.position === 2 ? (
-                      <Text style={styles.rankingMedalIcon}>🥈</Text>
+                      <MaterialIcons name="workspace-premium" size={20} color="#C0C0C0" />
                     ) : (
-                      <Text style={styles.rankingMedalIcon}>🥉</Text>
+                      <MaterialIcons name="workspace-premium" size={20} color="#CD7F32" />
                     )
                   ) : (
                     <Text style={styles.rankingPosition}>#{store.position}</Text>
                   )}
 
                   <View style={[styles.rankingItemLogo, { backgroundColor: store.logoBg }]}>
-                    <Text style={styles.rankingItemLogoIcon}>{store.logo}</Text>
+                    <MaterialIcons name={store.logo as any} size={18} color="white" />
                   </View>
 
                   <View style={styles.rankingItemInfo}>
@@ -1230,7 +2006,7 @@ export default function App() {
                     </Text>
                     <View style={styles.rankingItemRating}>
                       <Text style={styles.rankingItemRatingText}>{store.rating}</Text>
-                      <Text style={styles.rankingStarIcon}>⭐</Text>
+                      <MaterialIcons name="star" size={12} color="#FFD700" />
                     </View>
                   </View>
                 </View>
@@ -1256,9 +2032,11 @@ export default function App() {
               style={styles.navItem}
               onPress={() => setCurrentScreen(item.screen)}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -1306,7 +2084,7 @@ export default function App() {
           {/* Search Section */}
           <View style={styles.searchSection}>
             <View style={styles.searchBar}>
-              <Text style={styles.compareSearchIcon}>🔍</Text>
+              <MaterialIcons name="search" size={18} color="white" />
               <TextInput
                 style={styles.compareSearchInput}
                 placeholder="Digite o nome do produto..."
@@ -1320,18 +2098,18 @@ export default function App() {
             {/* Action Buttons */}
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonIcon}>📷</Text>
+                <MaterialIcons name="camera-alt" size={18} color="white" />
                 <Text style={styles.actionButtonText}>Tirar Foto</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonIcon}>📤</Text>
+                <MaterialIcons name="file-upload" size={18} color="white" />
                 <Text style={styles.actionButtonText}>Upload</Text>
               </TouchableOpacity>
             </View>
 
             {/* AI Smart Search Box */}
             <View style={styles.aiSearchBox}>
-              <Text style={styles.aiSearchIcon}>✨</Text>
+              <MaterialIcons name="auto-awesome" size={20} color="#60A5FA" />
               <View style={styles.aiSearchContent}>
                 <Text style={styles.aiSearchTitle}>Busca Inteligente com IA</Text>
                 <Text style={styles.aiSearchDescription}>
@@ -1367,9 +2145,15 @@ export default function App() {
                   {/* Store Info */}
                   <View style={styles.compareStoreInfo}>
                     <Text style={styles.compareStoreName}>{result.storeName}</Text>
-                    <Text style={styles.compareStoreDetails}>
-                      {result.distance} ⭐ {result.rating}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.compareStoreDetails}>
+                        {result.distance}{' '}
+                      </Text>
+                      <MaterialIcons name="star" size={14} color="#FFD700" />
+                      <Text style={styles.compareStoreDetails}>
+                        {' '}{result.rating}
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Price Details */}
@@ -1411,9 +2195,11 @@ export default function App() {
               style={styles.navItem}
               onPress={() => setCurrentScreen(item.screen)}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -1437,9 +2223,9 @@ export default function App() {
     ];
 
     const paymentMethods = [
-      { id: 'pix', name: 'PIX', icon: '⚡', description: 'Aprovação instantânea' },
-      { id: 'credit', name: 'Cartão de Crédito', icon: '💳', description: 'Parcelamento disponível' },
-      { id: 'debit', name: 'Cartão de Débito', icon: '🏦', description: 'Débito em conta' },
+      { id: 'pix', name: 'PIX', icon: 'flash-on', iconType: 'MaterialIcons', description: 'Aprovação instantânea' },
+      { id: 'credit', name: 'Cartão de Crédito', icon: 'credit-card', iconType: 'MaterialIcons', description: 'Parcelamento disponível' },
+      { id: 'debit', name: 'Cartão de Débito', icon: 'account-balance', iconType: 'MaterialIcons', description: 'Débito em conta' },
     ];
 
     const selectedPackage = cashbackPackages.find(pkg => pkg.amount === selectedAmount);
@@ -1462,7 +2248,10 @@ export default function App() {
         <ScrollView style={styles.buyCashbackContent} showsVerticalScrollIndicator={false}>
           {/* Info Card */}
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>💰 Como funciona?</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialIcons name="account-balance-wallet" size={20} color="#60A5FA" />
+              <Text style={styles.infoCardTitle}> Como funciona?</Text>
+            </View>
             <Text style={styles.infoCardText}>
               Compre cashback e use em qualquer loja parceira. Quanto mais você compra, maior o bônus!
             </Text>
@@ -1510,7 +2299,7 @@ export default function App() {
                 onPress={() => setSelectedMethod(method.id)}
               >
                 <View style={styles.paymentMethodLeft}>
-                  <Text style={styles.paymentMethodIcon}>{method.icon}</Text>
+                  <MaterialIcons name={method.icon as any} size={20} color="white" />
                   <View style={styles.paymentMethodInfo}>
                     <Text style={styles.paymentMethodName}>{method.name}</Text>
                     <Text style={styles.paymentMethodDescription}>{method.description}</Text>
@@ -1565,7 +2354,8 @@ export default function App() {
         description: 'Desconto em eletrônicos',
         expiryDate: '31/01/2025',
         minValue: 100,
-        icon: '⚡',
+        icon: 'flash-on',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
       },
       {
@@ -1575,7 +2365,8 @@ export default function App() {
         description: 'Desconto em roupas',
         expiryDate: '28/01/2025',
         minValue: 50,
-        icon: '👔',
+        icon: 'checkroom',
+        iconType: 'MaterialIcons',
         iconBg: '#9E9E9E',
       },
       {
@@ -1585,7 +2376,8 @@ export default function App() {
         description: 'Desconto em medicamentos',
         expiryDate: '25/01/2025',
         minValue: 30,
-        icon: '💊',
+        icon: 'local-pharmacy',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
       },
     ];
@@ -1597,7 +2389,8 @@ export default function App() {
         discount: '12%',
         description: 'Desconto em refeições',
         usedDate: '15/01/2025',
-        icon: '🍽️',
+        icon: 'restaurant',
+        iconType: 'MaterialIcons',
         iconBg: '#8D6E63',
       },
     ];
@@ -1642,7 +2435,7 @@ export default function App() {
         <ScrollView style={styles.vouchersContent} showsVerticalScrollIndicator={false}>
           {currentVouchers.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>🎫</Text>
+              <MaterialIcons name="confirmation-number" size={48} color="#9CA3AF" />
               <Text style={styles.emptyStateTitle}>Nenhum voucher encontrado</Text>
               <Text style={styles.emptyStateText}>
                 {activeTab === 'available'
@@ -1656,7 +2449,7 @@ export default function App() {
               <View key={voucher.id} style={styles.voucherCard}>
                 <View style={styles.voucherLeft}>
                   <View style={[styles.voucherIcon, { backgroundColor: voucher.iconBg }]}>
-                    <Text style={styles.voucherIconText}>{voucher.icon}</Text>
+                    <MaterialIcons name={voucher.icon as any} size={24} color="white" />
                   </View>
                   <View style={styles.voucherInfo}>
                     <Text style={styles.voucherStoreName}>{voucher.storeName}</Text>
@@ -1702,7 +2495,8 @@ export default function App() {
         amount: 45.50,
         type: 'received',
         expiresIn: 43,
-        icon: '👔',
+        icon: 'checkroom',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
         iconColor: '#2E7D32',
       },
@@ -1713,7 +2507,8 @@ export default function App() {
         amount: 30.00,
         type: 'used',
         expiresIn: null,
-        icon: '⚡',
+        icon: 'flash-on',
+        iconType: 'MaterialIcons',
         iconBg: '#FFCDD2',
         iconColor: '#D32F2F',
       },
@@ -1724,7 +2519,8 @@ export default function App() {
         amount: 12.80,
         type: 'received',
         expiresIn: 41,
-        icon: '💊',
+        icon: 'local-pharmacy',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
         iconColor: '#2E7D32',
       },
@@ -1735,7 +2531,8 @@ export default function App() {
         amount: 18.90,
         type: 'received',
         expiresIn: 40,
-        icon: '🍽️',
+        icon: 'restaurant',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
         iconColor: '#2E7D32',
       },
@@ -1746,7 +2543,8 @@ export default function App() {
         amount: 50.00,
         type: 'purchased',
         expiresIn: 36,
-        icon: '🎁',
+        icon: 'card-giftcard',
+        iconType: 'MaterialIcons',
         iconBg: '#2196F3',
         iconColor: '#1976D2',
       },
@@ -1780,7 +2578,7 @@ export default function App() {
                 style={styles.buyCashbackButton}
                 onPress={() => setWalletSubScreen('buy')}
               >
-                <Text style={styles.buyCashbackIcon}>🎁</Text>
+                <MaterialIcons name="card-giftcard" size={16} color="white" />
                 <Text style={styles.buyCashbackText}>Comprar Cashback</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1834,14 +2632,14 @@ export default function App() {
               <View key={transaction.id} style={styles.transactionCard}>
                 <View style={styles.transactionLeft}>
                   <View style={[styles.transactionIcon, { backgroundColor: transaction.iconBg }]}>
-                    <Text style={styles.transactionIconText}>{transaction.icon}</Text>
+                    <MaterialIcons name={transaction.icon as any} size={24} color="white" />
                   </View>
                   <View style={styles.transactionInfo}>
                     <Text style={styles.transactionStore}>{transaction.storeName}</Text>
                     <Text style={styles.transactionDate}>{transaction.date}</Text>
                     {transaction.expiresIn && (
                       <View style={styles.transactionExpiry}>
-                        <Text style={styles.expiryIcon}>🕒</Text>
+                        <MaterialIcons name="access-time" size={14} color="#9CA3AF" />
                         <Text style={styles.expiryText}>Expira em {transaction.expiresIn} dias</Text>
                       </View>
                     )}
@@ -1877,9 +2675,11 @@ export default function App() {
               style={styles.navItem}
               onPress={() => setCurrentScreen(item.screen)}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -1894,10 +2694,10 @@ export default function App() {
   const PromotionsScreen = () => {
     // Categorias de promoção
     const promoCategories = [
-      { id: 'all', name: 'Todas', icon: '🔥', count: 20 },
-      { id: 'flash', name: 'Flash Sales', icon: '⚡', count: 3 },
-      { id: 'partnerships', name: 'Parcerias', icon: '🎁', count: 5 },
-      { id: 'cashback', name: 'Cashback+', icon: '📈', count: 12 },
+      { id: 'all', name: 'Todas', icon: 'local-fire-department', iconType: 'MaterialIcons', count: 20 },
+      { id: 'flash', name: 'Flash Sales', icon: 'flash-on', iconType: 'MaterialIcons', count: 3 },
+      { id: 'partnerships', name: 'Parcerias', icon: 'card-giftcard', iconType: 'MaterialIcons', count: 5 },
+      { id: 'cashback', name: 'Cashback+', icon: 'trending-up', iconType: 'MaterialIcons', count: 12 },
     ];
 
     // Dados das promoções
@@ -1908,7 +2708,8 @@ export default function App() {
         category: 'flash',
         badge: 'Flash Sale',
         badgeColor: '#DC2626',
-        badgeIcon: '⚡',
+        badgeIcon: 'flash-on',
+        badgeIconType: 'MaterialIcons',
         title: 'Flash Sale - 50% OFF',
         subtitle: 'Fashion Style',
         description: 'Toda a coleção de verão com metade do preço',
@@ -1922,7 +2723,8 @@ export default function App() {
         category: 'partnerships',
         badge: 'Parceria',
         badgeColor: '#9333EA',
-        badgeIcon: '🎁',
+        badgeIcon: 'card-giftcard',
+        badgeIconType: 'MaterialIcons',
         title: 'Parceria Especial',
         subtitle: 'Fashion Style + Tech Store',
         description: 'Compre nas duas lojas e ganhe cashback combinado',
@@ -1936,7 +2738,8 @@ export default function App() {
         category: 'cashback',
         badge: 'Cashback',
         badgeColor: '#5C8FFC',
-        badgeIcon: '📈',
+        badgeIcon: 'trending-up',
+        badgeIconType: 'MaterialIcons',
         title: 'Cashback Dobrado',
         subtitle: 'Boutique Elegance',
         description: 'Ganhe cashback em dobro em toda a loja',
@@ -1950,7 +2753,8 @@ export default function App() {
         category: 'flash',
         badge: 'Flash Sale',
         badgeColor: '#DC2626',
-        badgeIcon: '⚡',
+        badgeIcon: 'flash-on',
+        badgeIconType: 'MaterialIcons',
         title: 'Mega Oferta Tech',
         subtitle: 'TechWorld',
         description: 'Smartphones e eletrônicos com até 40% OFF',
@@ -1964,7 +2768,8 @@ export default function App() {
         category: 'cashback',
         badge: 'Cashback',
         badgeColor: '#5C8FFC',
-        badgeIcon: '📈',
+        badgeIcon: 'trending-up',
+        badgeIconType: 'MaterialIcons',
         title: 'Cashback Triplo',
         subtitle: 'Restaurante Sabor',
         description: 'Coma bem e ganhe cashback triplo',
@@ -2015,7 +2820,7 @@ export default function App() {
                 ]}
                 onPress={() => setCurrentPromoCategory(category.id)}
               >
-                <Text style={styles.promoCategoryIcon}>{category.icon}</Text>
+                <MaterialIcons name={category.icon as any} size={24} color={currentPromoCategory === category.id ? '#5C8FFC' : '#9CA3AF'} />
                 <Text style={[
                   styles.promoCategoryCount,
                   currentPromoCategory === category.id && styles.promoCategoryCountActive
@@ -2036,7 +2841,7 @@ export default function App() {
                 <View style={styles.promotionImageContainer}>
                   {/* Placeholder for store image */}
                   <View style={styles.promotionImagePlaceholder}>
-                    <Text style={styles.promotionImageIcon}>🏪</Text>
+                    <MaterialIcons name="store" size={48} color="#9CA3AF" />
                   </View>
 
                   {/* Badge */}
@@ -2044,7 +2849,7 @@ export default function App() {
                     styles.promotionBadge,
                     { backgroundColor: promo.badgeColor }
                   ]}>
-                    <Text style={styles.promotionBadgeIcon}>{promo.badgeIcon}</Text>
+                    <MaterialIcons name={promo.badgeIcon as any} size={16} color="white" />
                     <Text style={styles.promotionBadgeText}>{promo.badge}</Text>
                   </View>
 
@@ -2066,13 +2871,13 @@ export default function App() {
 
                   {/* Timer */}
                   <View style={styles.promotionTimer}>
-                    <Text style={styles.promotionTimerIcon}>🕐</Text>
+                    <MaterialIcons name="access-time" size={16} color="#9CA3AF" />
                     <Text style={styles.promotionTimerText}>Termina em {promo.timeLeft}</Text>
                   </View>
 
                   {/* Action Button */}
                   <TouchableOpacity style={styles.promotionButton}>
-                    <Text style={styles.promotionButtonIcon}>🏷️</Text>
+                    <MaterialIcons name="local-offer" size={16} color="white" />
                     <Text style={styles.promotionButtonText}>Aproveitar Oferta</Text>
                   </TouchableOpacity>
                 </View>
@@ -2089,9 +2894,11 @@ export default function App() {
               style={styles.navItem}
               onPress={() => setCurrentScreen(item.screen)}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -2113,7 +2920,8 @@ export default function App() {
         amount: 299.99,
         cashback: 29.99,
         status: 'completed',
-        icon: '⚡',
+        icon: 'flash-on',
+        iconType: 'MaterialIcons',
         iconBg: '#4CAF50',
       },
       {
@@ -2246,9 +3054,11 @@ export default function App() {
                 setProfileSubScreen(null);
               }}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -2273,14 +3083,14 @@ export default function App() {
             </TouchableOpacity>
             <Text style={styles.profileTitle}>Meu Perfil</Text>
             <TouchableOpacity>
-              <Text style={styles.settingsIcon}>⚙️</Text>
+              <MaterialIcons name="settings" size={20} color="white" />
             </TouchableOpacity>
           </View>
 
           {/* Profile Info Section */}
           <View style={styles.profileInfoSection}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarIcon}>👤</Text>
+              <MaterialIcons name="person" size={48} color="#9CA3AF" />
             </View>
             <Text style={styles.profileName}>Maria Silva</Text>
             <Text style={styles.profileEmail}>maria.silva@email.com</Text>
@@ -2304,18 +3114,18 @@ export default function App() {
           {/* Achievements Section */}
           <View style={styles.achievementsCard}>
             <View style={styles.achievementsHeader}>
-              <Text style={styles.achievementsIcon}>🏆</Text>
+              <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
               <Text style={styles.achievementsTitle}>Conquistas</Text>
             </View>
             <View style={styles.achievementsButtons}>
               <TouchableOpacity style={styles.achievementButton}>
-                <Text style={styles.achievementIcon}>⭐</Text>
+                <MaterialIcons name="star" size={24} color="#FFD700" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.achievementButton}>
-                <Text style={styles.achievementIcon}>📈</Text>
+                <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.achievementButton}>
-                <Text style={styles.achievementIcon}>🏆</Text>
+                <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
               </TouchableOpacity>
             </View>
           </View>
@@ -2325,7 +3135,7 @@ export default function App() {
             <TouchableOpacity style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <Text style={styles.menuIconText}>👛</Text>
+                  <MaterialIcons name="account-balance-wallet" size={20} color="white" />
                 </View>
                 <View style={styles.menuItemInfo}>
                   <Text style={styles.menuItemTitle}>Minha Carteira</Text>
@@ -2338,7 +3148,7 @@ export default function App() {
             <TouchableOpacity style={styles.menuItem} onPress={() => setProfileSubScreen('purchases')}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <Text style={styles.menuIconText}>🛍️</Text>
+                  <MaterialIcons name="shopping-bag" size={20} color="white" />
                 </View>
                 <View style={styles.menuItemInfo}>
                   <Text style={styles.menuItemTitle}>Minhas Compras</Text>
@@ -2351,7 +3161,7 @@ export default function App() {
             <TouchableOpacity style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <Text style={styles.menuIconText}>🔔</Text>
+                  <MaterialIcons name="notifications" size={20} color="white" />
                   <View style={styles.notificationBadge}>
                     <Text style={styles.notificationBadgeText}>3</Text>
                   </View>
@@ -2370,7 +3180,7 @@ export default function App() {
             <TouchableOpacity style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <Text style={styles.menuIconText}>⚙️</Text>
+                  <MaterialIcons name="settings" size={20} color="white" />
                 </View>
                 <Text style={styles.menuItemTitle}>Configurações</Text>
               </View>
@@ -2380,7 +3190,7 @@ export default function App() {
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuItemIcon, { backgroundColor: '#DC2626' }]}>
-                  <Text style={styles.menuIconText}>🚪</Text>
+                  <MaterialIcons name="logout" size={20} color="white" />
                 </View>
                 <Text style={[styles.menuItemTitle, { color: '#DC2626' }]}>Sair</Text>
               </View>
@@ -2396,9 +3206,11 @@ export default function App() {
               style={styles.navItem}
               onPress={() => setCurrentScreen(item.screen)}
             >
-              <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-                {item.icon}
-              </Text>
+              <MaterialIcons
+                name={item.icon as any}
+                size={20}
+                color={item.active ? '#5C8FFC' : '#9CA3AF'}
+              />
               <Text style={[styles.navText, item.active && styles.navTextActive]}>
                 {item.name}
               </Text>
@@ -2420,7 +3232,7 @@ export default function App() {
           <View style={styles.headerLeft}>
             <Text style={styles.appTitle}>ILocash</Text>
             <View style={styles.locationContainer}>
-              <Text style={styles.locationIcon}>📍</Text>
+              <MaterialIcons name="place" size={18} color="white" />
               <Text style={styles.locationText}>São Paulo, SP</Text>
             </View>
           </View>
@@ -2429,14 +3241,14 @@ export default function App() {
               <Text style={styles.balanceText}>R$ 127,50</Text>
             </View>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutIcon}>🚪</Text>
+              <MaterialIcons name="logout" size={18} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <MaterialIcons name="search" size={18} color="white" />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar lojas ou produtos..."
@@ -2455,7 +3267,7 @@ export default function App() {
           <View style={styles.categoriesGrid}>
             {categories.map((category, index) => (
               <TouchableOpacity key={index} style={styles.categoryItem}>
-                <Text style={styles.categoryIcon}>{category.icon}</Text>
+                <MaterialIcons name={category.icon as any} size={24} color="white" />
                 <Text style={styles.categoryName}>{category.name}</Text>
               </TouchableOpacity>
             ))}
@@ -2465,7 +3277,7 @@ export default function App() {
         {/* Clube ILocash Banner */}
         <View style={styles.clubBanner}>
           <View style={styles.clubContent}>
-            <Text style={styles.clubIcon}>✨</Text>
+            <MaterialIcons name="star" size={32} color="#60A5FA" />
             <Text style={styles.clubTitle}>Clube ILocash</Text>
             <Text style={styles.clubDescription}>Compre cashback e economize ainda mais!</Text>
             <TouchableOpacity style={styles.clubButton}>
@@ -2478,7 +3290,7 @@ export default function App() {
         <View style={styles.promoBanner}>
           <View style={styles.promoBannerContent}>
             <View style={styles.promoBannerLeft}>
-              <Text style={styles.promoBannerIcon}>🔥</Text>
+              <MaterialIcons name="local-fire-department" size={32} color="white" />
               <View style={styles.promoBannerText}>
                 <Text style={styles.promoBannerTitle}>Promoções</Text>
                 <Text style={styles.promoBannerSubtitle}>Ofertas especiais para você</Text>
@@ -2534,11 +3346,11 @@ export default function App() {
 
                 <View style={styles.storeDetails}>
                   <View style={styles.storeDetailItem}>
-                    <Text style={styles.detailIcon}>📍</Text>
+                    <MaterialIcons name="place" size={14} color="white" />
                     <Text style={styles.detailText}>{store.distance}</Text>
                   </View>
                   <View style={styles.storeDetailItem}>
-                    <Text style={styles.detailIcon}>⭐</Text>
+                    <MaterialIcons name="star" size={14} color="white" />
                     <Text style={styles.detailText}>{store.rating}</Text>
                   </View>
                 </View>
@@ -2556,9 +3368,11 @@ export default function App() {
             style={styles.navItem}
             onPress={() => setCurrentScreen(item.screen)}
           >
-            <Text style={[styles.navIcon, item.active && styles.navIconActive]}>
-              {item.icon}
-            </Text>
+            <MaterialIcons
+              name={item.icon as any}
+              size={20}
+              color={item.active ? '#5C8FFC' : '#9CA3AF'}
+            />
             <Text style={[styles.navText, item.active && styles.navTextActive]}>
               {item.name}
             </Text>
@@ -2569,7 +3383,16 @@ export default function App() {
   );
 
   // Renderizar a tela baseada no estado de login e tela atual
-  if (!isLoggedIn) {
+  if (!authState.isLoggedIn) {
+    if (authState.authScreen === 'register') {
+      return <RegisterRoleScreen />;
+    }
+    if (authState.authScreen === 'register-client') {
+      return <RegisterClientScreen />;
+    }
+    if (authState.authScreen === 'register-merchant') {
+      return <RegisterMerchantScreen />;
+    }
     return <LoginScreen />;
   }
 
@@ -2647,16 +3470,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  loginWalletIcon: {
-    fontSize: 40,
-    color: 'white',
-  },
   loginStarIcon: {
     position: 'absolute',
     top: -5,
     right: -5,
-    fontSize: 20,
-    color: '#1F2937',
   },
   loginWelcomeText: {
     fontSize: 24,
@@ -2713,19 +3530,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  loginInputIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    color: '#6B7280',
-  },
   loginTextInput: {
     flex: 1,
     fontSize: 16,
     color: '#1F2937',
-  },
-  loginEyeIcon: {
-    fontSize: 18,
-    color: '#6B7280',
   },
   loginButton: {
     backgroundColor: '#5C8FFC',
@@ -2801,6 +3609,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5C8FFC',
     fontWeight: 'bold',
+  },
+  // Register Role Selection Styles
+  registerRoleContainer: {
+    gap: 16,
+    marginBottom: 30,
+  },
+  registerRoleCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  registerRoleCardSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#F0F7FF',
+  },
+  registerRoleTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  registerRoleDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Register Form Styles
+  registerGenderContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  registerGenderOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  registerGenderOptionSelected: {
+    borderColor: '#5C8FFC',
+    backgroundColor: '#F0F7FF',
+  },
+  registerGenderText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  registerGenderTextSelected: {
+    color: '#5C8FFC',
+    fontWeight: '600',
+  },
+  registerAddressRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   // Home Screen Styles
   container: {
