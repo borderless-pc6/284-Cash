@@ -1,8 +1,28 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
-import { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
 // @ts-ignore - @expo/vector-icons is available through expo
 import { MaterialIcons } from '@expo/vector-icons';
+import { auth } from './src/config/firebaseConfig';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+import {
+  PermissionLevel,
+  StorePermission,
+  hasPermission as checkPermission,
+  isMaster as checkIsMaster,
+  getUserStores as getStores,
+  canManageStore,
+  canEditStore,
+  canViewStore,
+  getStorePermissionLevel
+} from './src/utils/permissions';
 
 // Helper function to render icon
 const renderIcon = (icon: string, iconType: string = 'MaterialIcons', size: number = 24, color: string = 'white') => {
@@ -16,12 +36,16 @@ const renderIcon = (icon: string, iconType: string = 'MaterialIcons', size: numb
 type UserRole = 'cliente' | 'lojista';
 type Gender = 'masculino' | 'feminino' | 'outro' | 'prefiro-nao-informar';
 
+// Sistema de Permissões e Grupos
 interface User {
   id: string;
   email: string;
   cpf: string;
   name: string;
   role: UserRole;
+  permissionLevel: PermissionLevel; // Permissão principal do usuário
+  storePermissions?: StorePermission[]; // Permissões em lojas específicas
+  isMaster?: boolean; // Flag para permissão master
   birthDate?: string;
   gender?: Gender;
   address?: {
@@ -35,11 +59,174 @@ interface User {
   };
 }
 
+interface Store {
+  id: string;
+  name: string;
+  ownerId?: string; // ID do dono da loja
+  category?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  createdAt?: string;
+}
+
 interface AuthState {
   isLoggedIn: boolean;
   user: User | null;
   authScreen: 'login' | 'register' | 'register-client' | 'register-merchant';
 }
+
+// Funções de formatação (fora do componente para evitar recriação)
+const formatCPF = (value: string): string => {
+  const numbers = value.replace(/[^\d]/g, '');
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+  if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+  return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+};
+
+const formatZipCode = (value: string): string => {
+  const numbers = value.replace(/[^\d]/g, '');
+  if (numbers.length <= 5) return numbers;
+  return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
+};
+
+const formatDate = (value: string): string => {
+  const numbers = value.replace(/[^\d]/g, '');
+  if (numbers.length <= 2) return numbers;
+  if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+  return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+};
+
+// Componente da Tela de Login - movido para fora para evitar recriação
+interface LoginScreenProps {
+  loginEmail: string;
+  loginPassword: string;
+  onEmailChange: (text: string) => void;
+  onPasswordChange: (text: string) => void;
+  onLogin: () => void;
+  onRegisterPress: () => void;
+  styles: any;
+}
+
+const LoginScreenComponent = ({
+  loginEmail,
+  loginPassword,
+  onEmailChange,
+  onPasswordChange,
+  onLogin,
+  onRegisterPress,
+  styles
+}: LoginScreenProps) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <View style={styles.loginContainer}>
+      <StatusBar style="dark" />
+
+      {/* Header Section */}
+      <View style={styles.loginHeaderSection}>
+        <View style={styles.loginLogoContainer}>
+          <View style={styles.loginLogoBackground}>
+            <MaterialIcons name="account-balance-wallet" size={40} color="white" />
+            <View style={styles.loginStarIcon}>
+              <MaterialIcons name="star" size={20} color="#1F2937" />
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.loginWelcomeText}>Bem-vindo de volta!</Text>
+        <Text style={styles.loginSubtitleText}>Entre e aproveite cashback nas lojas locais</Text>
+      </View>
+
+      {/* Login Form */}
+      <View style={styles.loginFormCard}>
+        {/* Email/CPF Field */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>E-mail ou CPF</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              style={styles.loginTextInput}
+              placeholder="seu@email.com ou 000.000.000-0"
+              placeholderTextColor="#9CA3AF"
+              value={loginEmail}
+              onChangeText={onEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              blurOnSubmit={false}
+            />
+          </View>
+        </View>
+
+        {/* Password Field */}
+        <View style={styles.loginInputContainer}>
+          <View style={styles.loginPasswordHeader}>
+            <Text style={styles.loginInputLabel}>Senha</Text>
+            <TouchableOpacity>
+              <Text style={styles.loginForgotPassword}>Esqueceu?</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              style={styles.loginTextInput}
+              placeholder="Digite sua senha"
+              placeholderTextColor="#9CA3AF"
+              value={loginPassword}
+              onChangeText={onPasswordChange}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              blurOnSubmit={false}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <MaterialIcons
+                name={showPassword ? "visibility" : "visibility-off"}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Login Button */}
+        <TouchableOpacity style={styles.loginButton} onPress={onLogin}>
+          <Text style={styles.loginButtonText}>Entrar</Text>
+        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={styles.loginDivider}>
+          <View style={styles.loginDividerLine} />
+          <Text style={styles.loginDividerText}>ou continue com</Text>
+          <View style={styles.loginDividerLine} />
+        </View>
+
+        {/* Social Login Buttons */}
+        <View style={styles.loginSocialButtons}>
+          <TouchableOpacity style={styles.loginSocialButton}>
+            <Text style={styles.loginGoogleIcon}>G</Text>
+            <Text style={styles.loginSocialButtonText}>Google</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginSocialButton}>
+            <Text style={styles.loginFacebookIcon}>f</Text>
+            <Text style={styles.loginSocialButtonText}>Facebook</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.loginFooter}>
+        <Text style={styles.loginFooterText}>Não tem uma conta? </Text>
+        <TouchableOpacity onPress={onRegisterPress}>
+          <Text style={styles.loginRegisterLink}>Cadastre-se</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function App() {
   const [searchText, setSearchText] = useState('');
@@ -48,6 +235,7 @@ export default function App() {
     user: null,
     authScreen: 'login',
   });
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('home');
   const [walletSubScreen, setWalletSubScreen] = useState<string | null>(null);
   const [profileSubScreen, setProfileSubScreen] = useState<string | null>(null);
@@ -76,6 +264,80 @@ export default function App() {
   const [registerState, setRegisterState] = useState('');
   const [registerZipCode, setRegisterZipCode] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+
+  // Memoizar handlers para evitar re-renderizações desnecessárias
+  const handleLoginEmailChange = useCallback((text: string) => {
+    setLoginEmail(text);
+  }, []);
+
+  const handleLoginPasswordChange = useCallback((text: string) => {
+    setLoginPassword(text);
+  }, []);
+
+  const handleRegisterEmailChange = useCallback((text: string) => {
+    setRegisterEmail(text);
+  }, []);
+
+  const handleRegisterPasswordChange = useCallback((text: string) => {
+    setRegisterPassword(text);
+  }, []);
+
+  const handleRegisterConfirmPasswordChange = useCallback((text: string) => {
+    setRegisterConfirmPassword(text);
+  }, []);
+
+  const handleRegisterNameChange = useCallback((text: string) => {
+    setRegisterName(text);
+  }, []);
+
+  const handleRegisterCpfChange = useCallback((text: string) => {
+    const formatted = formatCPF(text);
+    if (formatted.replace(/[^\d]/g, '').length <= 11) {
+      setRegisterCpf(formatted);
+    }
+  }, []);
+
+  const handleRegisterBirthDateChange = useCallback((text: string) => {
+    const formatted = formatDate(text);
+    if (formatted.replace(/[^\d]/g, '').length <= 8) {
+      setRegisterBirthDate(formatted);
+    }
+  }, []);
+
+  const handleRegisterGenderChange = useCallback((gender: Gender) => {
+    setRegisterGender(gender);
+  }, []);
+
+  const handleRegisterStreetChange = useCallback((text: string) => {
+    setRegisterStreet(text);
+  }, []);
+
+  const handleRegisterNumberChange = useCallback((text: string) => {
+    setRegisterNumber(text);
+  }, []);
+
+  const handleRegisterComplementChange = useCallback((text: string) => {
+    setRegisterComplement(text);
+  }, []);
+
+  const handleRegisterNeighborhoodChange = useCallback((text: string) => {
+    setRegisterNeighborhood(text);
+  }, []);
+
+  const handleRegisterCityChange = useCallback((text: string) => {
+    setRegisterCity(text);
+  }, []);
+
+  const handleRegisterStateChange = useCallback((text: string) => {
+    setRegisterState(text.toUpperCase().slice(0, 2));
+  }, []);
+
+  const handleRegisterZipCodeChange = useCallback((text: string) => {
+    const formatted = formatZipCode(text);
+    if (formatted.replace(/[^\d]/g, '').length <= 8) {
+      setRegisterZipCode(formatted);
+    }
+  }, []);
 
   // Funções de validação
   const validateEmail = (email: string): boolean => {
@@ -107,28 +369,136 @@ export default function App() {
     return true;
   };
 
-  const formatCPF = (value: string): string => {
-    const numbers = value.replace(/[^\d]/g, '');
-    if (numbers.length <= 3) return numbers;
-    if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
-    if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
-    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
-  };
+  // Funções de verificação de permissões (wrappers para usar com authState.user)
+  const hasPermission = useCallback((storeId: string | null, requiredPermission: PermissionLevel): boolean => {
+    if (!authState.user) return false;
+    return checkPermission(
+      {
+        permissionLevel: authState.user.permissionLevel,
+        isMaster: authState.user.isMaster || false,
+        storePermissions: authState.user.storePermissions || []
+      },
+      storeId,
+      requiredPermission
+    );
+  }, [authState.user]);
 
-  const formatZipCode = (value: string): string => {
-    const numbers = value.replace(/[^\d]/g, '');
-    if (numbers.length <= 5) return numbers;
-    return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
-  };
+  const isMasterUser = useCallback((): boolean => {
+    if (!authState.user) return false;
+    return checkIsMaster({
+      permissionLevel: authState.user.permissionLevel,
+      isMaster: authState.user.isMaster || false,
+      storePermissions: authState.user.storePermissions || []
+    });
+  }, [authState.user]);
 
-  const formatDate = (value: string): string => {
-    const numbers = value.replace(/[^\d]/g, '');
-    if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
-    return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
-  };
+  const getUserStores = useCallback((): StorePermission[] => {
+    if (!authState.user) return [];
+    return getStores({
+      permissionLevel: authState.user.permissionLevel,
+      isMaster: authState.user.isMaster || false,
+      storePermissions: authState.user.storePermissions || []
+    });
+  }, [authState.user]);
 
-  const handleLogout = () => {
+  const canManageStoreById = useCallback((storeId: string): boolean => {
+    if (!authState.user) return false;
+    return canManageStore(
+      {
+        permissionLevel: authState.user.permissionLevel,
+        isMaster: authState.user.isMaster || false,
+        storePermissions: authState.user.storePermissions || []
+      },
+      storeId
+    );
+  }, [authState.user]);
+
+  const canEditStoreById = useCallback((storeId: string): boolean => {
+    if (!authState.user) return false;
+    return canEditStore(
+      {
+        permissionLevel: authState.user.permissionLevel,
+        isMaster: authState.user.isMaster || false,
+        storePermissions: authState.user.storePermissions || []
+      },
+      storeId
+    );
+  }, [authState.user]);
+
+  const canViewStoreById = useCallback((storeId: string): boolean => {
+    if (!authState.user) return false;
+    return canViewStore(
+      {
+        permissionLevel: authState.user.permissionLevel,
+        isMaster: authState.user.isMaster || false,
+        storePermissions: authState.user.storePermissions || []
+      },
+      storeId
+    );
+  }, [authState.user]);
+
+  const getStorePermissionLevelById = useCallback((storeId: string): PermissionLevel | null => {
+    if (!authState.user) return null;
+    return getStorePermissionLevel(
+      {
+        permissionLevel: authState.user.permissionLevel,
+        isMaster: authState.user.isMaster || false,
+        storePermissions: authState.user.storePermissions || []
+      },
+      storeId
+    );
+  }, [authState.user]);
+
+  // Verificar estado de autenticação do Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      setIsLoadingAuth(false);
+
+      if (firebaseUser) {
+        // Usuário está autenticado
+        // Nota: Você precisará buscar os dados adicionais do usuário (CPF, role, permissões, etc.) 
+        // do Firestore ou outro banco de dados, pois o Firebase Auth só armazena email/uid
+        const user: User = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          cpf: '', // Será necessário buscar do Firestore
+          name: firebaseUser.displayName || '',
+          role: 'cliente', // Será necessário buscar do Firestore
+          permissionLevel: 'cliente', // Permissão padrão - será necessário buscar do Firestore
+          isMaster: false, // Será necessário buscar do Firestore
+          storePermissions: [], // Será necessário buscar do Firestore
+        };
+
+        // Só atualiza se o estado realmente mudou
+        setAuthState((prevState) => {
+          if (prevState.isLoggedIn && prevState.user?.id === user.id) {
+            return prevState; // Não atualiza se já está logado com o mesmo usuário
+          }
+          return {
+            isLoggedIn: true,
+            user: user,
+            authScreen: 'login',
+          };
+        });
+      } else {
+        // Usuário não está autenticado
+        setAuthState((prevState) => {
+          if (!prevState.isLoggedIn) {
+            return prevState; // Não atualiza se já não está logado
+          }
+          return {
+            isLoggedIn: false,
+            user: null,
+            authScreen: 'login',
+          };
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Tem certeza que deseja sair?',
@@ -140,23 +510,23 @@ export default function App() {
         {
           text: 'Sair',
           style: 'destructive',
-          onPress: () => {
-            setAuthState({
-              isLoggedIn: false,
-              user: null,
-              authScreen: 'login',
-            });
-            setLoginEmail('');
-            setLoginPassword('');
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              setLoginEmail('');
+              setLoginPassword('');
+            } catch (error: any) {
+              Alert.alert('Erro', 'Erro ao fazer logout: ' + (error.message || 'Erro desconhecido'));
+            }
           },
         },
       ]
     );
   };
 
-  const handleLogin = () => {
+  const handleLogin = useCallback(async () => {
     if (!loginEmail.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha o e-mail ou CPF');
+      Alert.alert('Erro', 'Por favor, preencha o e-mail');
       return;
     }
     if (!loginPassword.trim()) {
@@ -164,35 +534,46 @@ export default function App() {
       return;
     }
 
-    // Validação básica (em produção, isso seria uma chamada à API)
+    // Validação de e-mail
     const isValidEmail = validateEmail(loginEmail);
-    const isValidCPF = validateCPF(loginEmail.replace(/[^\d]/g, ''));
-
-    if (!isValidEmail && !isValidCPF) {
-      Alert.alert('Erro', 'E-mail ou CPF inválido');
+    if (!isValidEmail) {
+      Alert.alert('Erro', 'Por favor, insira um e-mail válido');
       return;
     }
 
-    // Simulação de login bem-sucedido
-    // Em produção, isso viria de uma API
-    const mockUser: User = {
-      id: '1',
-      email: isValidEmail ? loginEmail : 'usuario@exemplo.com',
-      cpf: isValidCPF ? loginEmail.replace(/[^\d]/g, '') : '00000000000',
-      name: 'Usuário Teste',
-      role: 'cliente',
-    };
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const firebaseUser = userCredential.user;
 
-    setAuthState({
-      isLoggedIn: true,
-      user: mockUser,
-      authScreen: 'login',
-    });
+      // O estado de autenticação será atualizado automaticamente pelo useEffect
+      // que monitora onAuthStateChanged
+      Alert.alert('Sucesso', 'Login realizado com sucesso!');
 
-    Alert.alert('Sucesso', 'Login realizado com sucesso!');
-  };
+      // Limpar campos
+      setLoginEmail('');
+      setLoginPassword('');
+    } catch (error: any) {
+      let errorMessage = 'Erro ao fazer login';
 
-  const handleRegister = () => {
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'Usuário não encontrado';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Senha incorreta';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'E-mail inválido';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'Usuário desabilitado';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Erro', errorMessage);
+    }
+  }, [loginEmail, loginPassword]);
+
+  const handleRegister = async () => {
     if (!registerEmail.trim() || !validateEmail(registerEmail)) {
       Alert.alert('Erro', 'Por favor, insira um e-mail válido');
       return;
@@ -227,50 +608,53 @@ export default function App() {
       }
     }
 
-    // Criar usuário
-    const newUser: User = {
-      id: Date.now().toString(),
-      email: registerEmail,
-      cpf: registerCpf.replace(/[^\d]/g, ''),
-      name: registerName,
-      role: selectedRole || 'cliente',
-      birthDate: registerBirthDate,
-      gender: registerGender,
-      address: selectedRole === 'cliente' ? {
-        street: registerStreet,
-        number: registerNumber,
-        complement: registerComplement,
-        neighborhood: registerNeighborhood,
-        city: registerCity,
-        state: registerState,
-        zipCode: registerZipCode.replace(/[^\d]/g, ''),
-      } : undefined,
-    };
+    try {
+      // Criar usuário no Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, registerPassword);
+      const firebaseUser = userCredential.user;
 
-    setAuthState({
-      isLoggedIn: true,
-      user: newUser,
-      authScreen: 'login',
-    });
+      // Atualizar o displayName do usuário com o nome fornecido
+      await updateProfile(firebaseUser, { displayName: registerName });
 
-    Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
+      // Nota: Para salvar dados adicionais (CPF, role, endereço, etc.), 
+      // você precisará usar o Firestore ou Realtime Database
+      // Por enquanto, apenas atualizamos o displayName no Firebase Auth
 
-    // Limpar formulário
-    setRegisterEmail('');
-    setRegisterPassword('');
-    setRegisterConfirmPassword('');
-    setRegisterName('');
-    setRegisterCpf('');
-    setRegisterBirthDate('');
-    setRegisterGender('prefiro-nao-informar');
-    setRegisterStreet('');
-    setRegisterNumber('');
-    setRegisterComplement('');
-    setRegisterNeighborhood('');
-    setRegisterCity('');
-    setRegisterState('');
-    setRegisterZipCode('');
-    setSelectedRole(null);
+      // O estado de autenticação será atualizado automaticamente pelo useEffect
+      // que monitora onAuthStateChanged
+      Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
+
+      // Limpar formulário
+      setRegisterEmail('');
+      setRegisterPassword('');
+      setRegisterConfirmPassword('');
+      setRegisterName('');
+      setRegisterCpf('');
+      setRegisterBirthDate('');
+      setRegisterGender('prefiro-nao-informar');
+      setRegisterStreet('');
+      setRegisterNumber('');
+      setRegisterComplement('');
+      setRegisterNeighborhood('');
+      setRegisterCity('');
+      setRegisterState('');
+      setRegisterZipCode('');
+      setSelectedRole(null);
+    } catch (error: any) {
+      let errorMessage = 'Erro ao criar conta';
+
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Este e-mail já está em uso';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'E-mail inválido';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Senha muito fraca';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Erro', errorMessage);
+    }
   };
 
   const categories = [
@@ -1243,111 +1627,6 @@ export default function App() {
     );
   };
 
-  // Componente da Tela de Login
-  const LoginScreen = () => {
-    const [showPassword, setShowPassword] = useState(false);
-
-    return (
-      <View style={styles.loginContainer}>
-        <StatusBar style="dark" />
-
-        {/* Header Section */}
-        <View style={styles.loginHeaderSection}>
-          <View style={styles.loginLogoContainer}>
-            <View style={styles.loginLogoBackground}>
-              <MaterialIcons name="account-balance-wallet" size={40} color="white" />
-              <View style={styles.loginStarIcon}>
-                <MaterialIcons name="star" size={20} color="#1F2937" />
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.loginWelcomeText}>Bem-vindo de volta!</Text>
-          <Text style={styles.loginSubtitleText}>Entre e aproveite cashback nas lojas locais</Text>
-        </View>
-
-        {/* Login Form */}
-        <View style={styles.loginFormCard}>
-          {/* Email/CPF Field */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>E-mail ou CPF</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="seu@email.com ou 000.000.000-0"
-                placeholderTextColor="#9CA3AF"
-                value={loginEmail}
-                onChangeText={setLoginEmail}
-                keyboardType="email-address"
-              />
-            </View>
-          </View>
-
-          {/* Password Field */}
-          <View style={styles.loginInputContainer}>
-            <View style={styles.loginPasswordHeader}>
-              <Text style={styles.loginInputLabel}>Senha</Text>
-              <TouchableOpacity>
-                <Text style={styles.loginForgotPassword}>Esqueceu?</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Digite sua senha"
-                placeholderTextColor="#9CA3AF"
-                value={loginPassword}
-                onChangeText={setLoginPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <MaterialIcons
-                  name={showPassword ? "visibility" : "visibility-off"}
-                  size={18}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Entrar</Text>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.loginDivider}>
-            <View style={styles.loginDividerLine} />
-            <Text style={styles.loginDividerText}>ou continue com</Text>
-            <View style={styles.loginDividerLine} />
-          </View>
-
-          {/* Social Login Buttons */}
-          <View style={styles.loginSocialButtons}>
-            <TouchableOpacity style={styles.loginSocialButton}>
-              <Text style={styles.loginGoogleIcon}>G</Text>
-              <Text style={styles.loginSocialButtonText}>Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.loginSocialButton}>
-              <Text style={styles.loginFacebookIcon}>f</Text>
-              <Text style={styles.loginSocialButtonText}>Facebook</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.loginFooter}>
-          <Text style={styles.loginFooterText}>Não tem uma conta? </Text>
-          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'register' })}>
-            <Text style={styles.loginRegisterLink}>Cadastre-se</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
 
   // Componente da Tela de Seleção de Perfil
   const RegisterRoleScreen = () => {
@@ -1457,7 +1736,7 @@ export default function App() {
                 placeholder="Seu nome completo"
                 placeholderTextColor="#9CA3AF"
                 value={registerName}
-                onChangeText={setRegisterName}
+                onChangeText={handleRegisterNameChange}
               />
             </View>
           </View>
@@ -1472,7 +1751,7 @@ export default function App() {
                 placeholder="seu@email.com"
                 placeholderTextColor="#9CA3AF"
                 value={registerEmail}
-                onChangeText={setRegisterEmail}
+                onChangeText={handleRegisterEmailChange}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -1489,12 +1768,7 @@ export default function App() {
                 placeholder="000.000.000-00"
                 placeholderTextColor="#9CA3AF"
                 value={registerCpf}
-                onChangeText={(text) => {
-                  const formatted = formatCPF(text);
-                  if (formatted.replace(/[^\d]/g, '').length <= 11) {
-                    setRegisterCpf(formatted);
-                  }
-                }}
+                onChangeText={handleRegisterCpfChange}
                 keyboardType="numeric"
                 maxLength={14}
               />
@@ -1511,12 +1785,7 @@ export default function App() {
                 placeholder="DD/MM/AAAA"
                 placeholderTextColor="#9CA3AF"
                 value={registerBirthDate}
-                onChangeText={(text) => {
-                  const formatted = formatDate(text);
-                  if (formatted.replace(/[^\d]/g, '').length <= 8) {
-                    setRegisterBirthDate(formatted);
-                  }
-                }}
+                onChangeText={handleRegisterBirthDateChange}
                 keyboardType="numeric"
                 maxLength={10}
               />
@@ -1559,7 +1828,7 @@ export default function App() {
                 placeholder="Nome da rua"
                 placeholderTextColor="#9CA3AF"
                 value={registerStreet}
-                onChangeText={setRegisterStreet}
+                onChangeText={handleRegisterStreetChange}
               />
             </View>
           </View>
@@ -1574,7 +1843,7 @@ export default function App() {
                   placeholder="123"
                   placeholderTextColor="#9CA3AF"
                   value={registerNumber}
-                  onChangeText={setRegisterNumber}
+                  onChangeText={handleRegisterNumberChange}
                   keyboardType="numeric"
                 />
               </View>
@@ -1587,7 +1856,7 @@ export default function App() {
                   placeholder="Apto, Bloco..."
                   placeholderTextColor="#9CA3AF"
                   value={registerComplement}
-                  onChangeText={setRegisterComplement}
+                  onChangeText={handleRegisterComplementChange}
                 />
               </View>
             </View>
@@ -1603,7 +1872,7 @@ export default function App() {
                 placeholder="Nome do bairro"
                 placeholderTextColor="#9CA3AF"
                 value={registerNeighborhood}
-                onChangeText={setRegisterNeighborhood}
+                onChangeText={handleRegisterNeighborhoodChange}
               />
             </View>
           </View>
@@ -1618,7 +1887,7 @@ export default function App() {
                   placeholder="Cidade"
                   placeholderTextColor="#9CA3AF"
                   value={registerCity}
-                  onChangeText={setRegisterCity}
+                  onChangeText={handleRegisterCityChange}
                 />
               </View>
             </View>
@@ -1630,7 +1899,7 @@ export default function App() {
                   placeholder="SP"
                   placeholderTextColor="#9CA3AF"
                   value={registerState}
-                  onChangeText={(text) => setRegisterState(text.toUpperCase().slice(0, 2))}
+                  onChangeText={handleRegisterStateChange}
                   maxLength={2}
                   autoCapitalize="characters"
                 />
@@ -1648,12 +1917,7 @@ export default function App() {
                 placeholder="00000-000"
                 placeholderTextColor="#9CA3AF"
                 value={registerZipCode}
-                onChangeText={(text) => {
-                  const formatted = formatZipCode(text);
-                  if (formatted.replace(/[^\d]/g, '').length <= 8) {
-                    setRegisterZipCode(formatted);
-                  }
-                }}
+                onChangeText={handleRegisterZipCodeChange}
                 keyboardType="numeric"
                 maxLength={9}
               />
@@ -1670,7 +1934,7 @@ export default function App() {
                 placeholder="Mínimo 6 caracteres"
                 placeholderTextColor="#9CA3AF"
                 value={registerPassword}
-                onChangeText={setRegisterPassword}
+                onChangeText={handleRegisterPasswordChange}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -1693,7 +1957,7 @@ export default function App() {
                 placeholder="Digite a senha novamente"
                 placeholderTextColor="#9CA3AF"
                 value={registerConfirmPassword}
-                onChangeText={setRegisterConfirmPassword}
+                onChangeText={handleRegisterConfirmPasswordChange}
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
@@ -1762,7 +2026,7 @@ export default function App() {
                 placeholder="Nome da sua loja"
                 placeholderTextColor="#9CA3AF"
                 value={registerName}
-                onChangeText={setRegisterName}
+                onChangeText={handleRegisterNameChange}
               />
             </View>
           </View>
@@ -1777,7 +2041,7 @@ export default function App() {
                 placeholder="seu@email.com"
                 placeholderTextColor="#9CA3AF"
                 value={registerEmail}
-                onChangeText={setRegisterEmail}
+                onChangeText={handleRegisterEmailChange}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -1815,7 +2079,7 @@ export default function App() {
                 placeholder="Mínimo 6 caracteres"
                 placeholderTextColor="#9CA3AF"
                 value={registerPassword}
-                onChangeText={setRegisterPassword}
+                onChangeText={handleRegisterPasswordChange}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -1838,7 +2102,7 @@ export default function App() {
                 placeholder="Digite a senha novamente"
                 placeholderTextColor="#9CA3AF"
                 value={registerConfirmPassword}
-                onChangeText={setRegisterConfirmPassword}
+                onChangeText={handleRegisterConfirmPasswordChange}
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
@@ -3071,6 +3335,11 @@ export default function App() {
 
   // Componente da Tela de Perfil
   const ProfileScreen = () => {
+    // Obter dados do usuário autenticado
+    const user = authState.user;
+    const userName = user?.name || user?.email?.split('@')[0] || 'Usuário';
+    const userEmail = user?.email || '';
+
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
@@ -3092,8 +3361,8 @@ export default function App() {
             <View style={styles.profileAvatar}>
               <MaterialIcons name="person" size={48} color="#9CA3AF" />
             </View>
-            <Text style={styles.profileName}>Maria Silva</Text>
-            <Text style={styles.profileEmail}>maria.silva@email.com</Text>
+            <Text style={styles.profileName}>{userName}</Text>
+            <Text style={styles.profileEmail}>{userEmail}</Text>
 
             <View style={styles.profileStats}>
               <View style={styles.profileStatItem}>
@@ -3382,6 +3651,15 @@ export default function App() {
     </View>
   );
 
+  // Mostrar loading enquanto verifica autenticação
+  if (isLoadingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+        <Text style={{ fontSize: 16, color: '#6B7280' }}>Carregando...</Text>
+      </View>
+    );
+  }
+
   // Renderizar a tela baseada no estado de login e tela atual
   if (!authState.isLoggedIn) {
     if (authState.authScreen === 'register') {
@@ -3393,7 +3671,17 @@ export default function App() {
     if (authState.authScreen === 'register-merchant') {
       return <RegisterMerchantScreen />;
     }
-    return <LoginScreen />;
+    return (
+      <LoginScreenComponent
+        loginEmail={loginEmail}
+        loginPassword={loginPassword}
+        onEmailChange={handleLoginEmailChange}
+        onPasswordChange={handleLoginPasswordChange}
+        onLogin={handleLogin}
+        onRegisterPress={() => setAuthState({ ...authState, authScreen: 'register' })}
+        styles={styles}
+      />
+    );
   }
 
   if (currentScreen === 'ranking') {
