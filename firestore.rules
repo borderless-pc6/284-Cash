@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras para a coleção de usuários
+    match /users/{userId} {
+      // Permitir leitura e escrita para todos (apenas para desenvolvimento)
+      // ATENÇÃO: Em produção, você deve implementar regras mais restritivas
+      allow read, write: if true;
+    }
+    
+    // Regras para outras coleções podem ser adicionadas aqui
+    // Por exemplo, lojas, produtos, etc.
+  }
+}
+

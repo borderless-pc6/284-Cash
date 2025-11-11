@@ -3,15 +3,6 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Image,
 import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
 // @ts-ignore - @expo/vector-icons is available through expo
 import { MaterialIcons } from '@expo/vector-icons';
-import { auth } from './src/config/firebaseConfig';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
 import {
   PermissionLevel,
   StorePermission,
@@ -23,6 +14,12 @@ import {
   canViewStore,
   getStorePermissionLevel
 } from './src/utils/permissions';
+import { 
+  getUserDataFromFirestore, 
+  loginWithEmailAndPassword, 
+  createUser 
+} from './src/utils/userService';
+import { getSession, saveSession, clearSession } from './src/utils/sessionService';
 
 // Helper function to render icon
 const renderIcon = (icon: string, iconType: string = 'MaterialIcons', size: number = 24, color: string = 'white') => {
@@ -106,6 +103,60 @@ interface LoginScreenProps {
   onPasswordChange: (text: string) => void;
   onLogin: () => void;
   onRegisterPress: () => void;
+  styles: any;
+}
+
+// Interface para props do RegisterClientScreen
+interface RegisterClientScreenProps {
+  registerName: string;
+  registerEmail: string;
+  registerCpf: string;
+  registerBirthDate: string;
+  registerGender: Gender;
+  registerStreet: string;
+  registerNumber: string;
+  registerComplement: string;
+  registerNeighborhood: string;
+  registerCity: string;
+  registerState: string;
+  registerZipCode: string;
+  registerPassword: string;
+  registerConfirmPassword: string;
+  onNameChange: (text: string) => void;
+  onEmailChange: (text: string) => void;
+  onCpfChange: (text: string) => void;
+  onBirthDateChange: (text: string) => void;
+  onGenderChange: (gender: Gender) => void;
+  onStreetChange: (text: string) => void;
+  onNumberChange: (text: string) => void;
+  onComplementChange: (text: string) => void;
+  onNeighborhoodChange: (text: string) => void;
+  onCityChange: (text: string) => void;
+  onStateChange: (text: string) => void;
+  onZipCodeChange: (text: string) => void;
+  onPasswordChange: (text: string) => void;
+  onConfirmPasswordChange: (text: string) => void;
+  onRegister: () => void;
+  onBack: () => void;
+  onBackToLogin: () => void;
+  styles: any;
+}
+
+// Interface para props do RegisterMerchantScreen
+interface RegisterMerchantScreenProps {
+  registerName: string;
+  registerEmail: string;
+  registerCpf: string;
+  registerPassword: string;
+  registerConfirmPassword: string;
+  onNameChange: (text: string) => void;
+  onEmailChange: (text: string) => void;
+  onCpfChange: (text: string) => void;
+  onPasswordChange: (text: string) => void;
+  onConfirmPasswordChange: (text: string) => void;
+  onRegister: () => void;
+  onBack: () => void;
+  onBackToLogin: () => void;
   styles: any;
 }
 
@@ -227,6 +278,517 @@ const LoginScreenComponent = ({
     </View>
   );
 };
+
+// Componente da Tela de Cadastro de Cliente (fora do App para evitar recriações)
+const RegisterClientScreen = memo(({
+  registerName,
+  registerEmail,
+  registerCpf,
+  registerBirthDate,
+  registerGender,
+  registerStreet,
+  registerNumber,
+  registerComplement,
+  registerNeighborhood,
+  registerCity,
+  registerState,
+  registerZipCode,
+  registerPassword,
+  registerConfirmPassword,
+  onNameChange,
+  onEmailChange,
+  onCpfChange,
+  onBirthDateChange,
+  onGenderChange,
+  onStreetChange,
+  onNumberChange,
+  onComplementChange,
+  onNeighborhoodChange,
+  onCityChange,
+  onStateChange,
+  onZipCodeChange,
+  onPasswordChange,
+  onConfirmPasswordChange,
+  onRegister,
+  onBack,
+  onBackToLogin,
+  styles
+}: RegisterClientScreenProps) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  return (
+    <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
+      <StatusBar style="dark" />
+
+      {/* Header Section */}
+      <View style={styles.loginHeaderSection}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
+        >
+          <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
+        </TouchableOpacity>
+        <View style={styles.loginLogoContainer}>
+          <View style={styles.loginLogoBackground}>
+            <MaterialIcons name="account-balance-wallet" size={40} color="white" />
+          </View>
+        </View>
+
+        <Text style={styles.loginWelcomeText}>Cadastro de Cliente</Text>
+        <Text style={styles.loginSubtitleText}>Preencha seus dados para começar</Text>
+      </View>
+
+      {/* Register Form */}
+      <View style={styles.loginFormCard}>
+        {/* Nome Completo */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Nome Completo *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="person" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-name"
+              style={styles.loginTextInput}
+              placeholder="Seu nome completo"
+              placeholderTextColor="#9CA3AF"
+              value={registerName}
+              onChangeText={onNameChange}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* Email */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>E-mail *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-email-client"
+              style={styles.loginTextInput}
+              placeholder="seu@email.com"
+              placeholderTextColor="#9CA3AF"
+              value={registerEmail}
+              onChangeText={onEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+
+        {/* CPF */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>CPF *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-cpf"
+              style={styles.loginTextInput}
+              placeholder="000.000.000-00"
+              placeholderTextColor="#9CA3AF"
+              value={registerCpf}
+              onChangeText={onCpfChange}
+              keyboardType="numeric"
+              maxLength={14}
+            />
+          </View>
+        </View>
+
+        {/* Data de Nascimento */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Data de Nascimento *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="calendar-today" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-birthdate"
+              style={styles.loginTextInput}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor="#9CA3AF"
+              value={registerBirthDate}
+              onChangeText={onBirthDateChange}
+              keyboardType="numeric"
+              maxLength={10}
+            />
+          </View>
+        </View>
+
+        {/* Sexo */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Sexo</Text>
+          <View style={styles.registerGenderContainer}>
+            {(['masculino', 'feminino', 'outro', 'prefiro-nao-informar'] as Gender[]).map((gender) => (
+              <TouchableOpacity
+                key={gender}
+                style={[
+                  styles.registerGenderOption,
+                  registerGender === gender && styles.registerGenderOptionSelected
+                ]}
+                onPress={() => onGenderChange(gender)}
+              >
+                <Text style={[
+                  styles.registerGenderText,
+                  registerGender === gender && styles.registerGenderTextSelected
+                ]}>
+                  {gender === 'masculino' ? 'Masculino' :
+                    gender === 'feminino' ? 'Feminino' :
+                      gender === 'outro' ? 'Outro' : 'Prefiro não informar'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Endereço - Rua */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Rua *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="place" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-street"
+              style={styles.loginTextInput}
+              placeholder="Nome da rua"
+              placeholderTextColor="#9CA3AF"
+              value={registerStreet}
+              onChangeText={onStreetChange}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* Número e Complemento */}
+        <View style={styles.registerAddressRow}>
+          <View style={[styles.loginInputContainer, { flex: 1, marginRight: 10 }]}>
+            <Text style={styles.loginInputLabel}>Número *</Text>
+            <View style={styles.loginInputWrapper}>
+              <TextInput
+                key="register-number"
+                style={styles.loginTextInput}
+                placeholder="123"
+                placeholderTextColor="#9CA3AF"
+                value={registerNumber}
+                onChangeText={onNumberChange}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+          <View style={[styles.loginInputContainer, { flex: 1 }]}>
+            <Text style={styles.loginInputLabel}>Complemento</Text>
+            <View style={styles.loginInputWrapper}>
+              <TextInput
+                key="register-complement"
+                style={styles.loginTextInput}
+                placeholder="Apto, Bloco..."
+                placeholderTextColor="#9CA3AF"
+                value={registerComplement}
+                onChangeText={onComplementChange}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Bairro */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Bairro *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="location-city" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-neighborhood"
+              style={styles.loginTextInput}
+              placeholder="Nome do bairro"
+              placeholderTextColor="#9CA3AF"
+              value={registerNeighborhood}
+              onChangeText={onNeighborhoodChange}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* Cidade e Estado */}
+        <View style={styles.registerAddressRow}>
+          <View style={[styles.loginInputContainer, { flex: 2, marginRight: 10 }]}>
+            <Text style={styles.loginInputLabel}>Cidade *</Text>
+            <View style={styles.loginInputWrapper}>
+              <TextInput
+                key="register-city"
+                style={styles.loginTextInput}
+                placeholder="Cidade"
+                placeholderTextColor="#9CA3AF"
+                value={registerCity}
+                onChangeText={onCityChange}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+          <View style={[styles.loginInputContainer, { flex: 1 }]}>
+            <Text style={styles.loginInputLabel}>UF *</Text>
+            <View style={styles.loginInputWrapper}>
+              <TextInput
+                key="register-state"
+                style={styles.loginTextInput}
+                placeholder="SP"
+                placeholderTextColor="#9CA3AF"
+                value={registerState}
+                onChangeText={onStateChange}
+                maxLength={2}
+                autoCapitalize="characters"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* CEP */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>CEP *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="local-post-office" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-zipcode"
+              style={styles.loginTextInput}
+              placeholder="00000-000"
+              placeholderTextColor="#9CA3AF"
+              value={registerZipCode}
+              onChangeText={onZipCodeChange}
+              keyboardType="numeric"
+              maxLength={9}
+            />
+          </View>
+        </View>
+
+        {/* Senha */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Senha *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-password-client"
+              style={styles.loginTextInput}
+              placeholder="Mínimo 6 caracteres"
+              placeholderTextColor="#9CA3AF"
+              value={registerPassword}
+              onChangeText={onPasswordChange}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <MaterialIcons
+                name={showPassword ? "visibility" : "visibility-off"}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Confirmar Senha */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-confirm-password-client"
+              style={styles.loginTextInput}
+              placeholder="Digite a senha novamente"
+              placeholderTextColor="#9CA3AF"
+              value={registerConfirmPassword}
+              onChangeText={onConfirmPasswordChange}
+              secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <MaterialIcons
+                name={showConfirmPassword ? "visibility" : "visibility-off"}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Register Button */}
+        <TouchableOpacity style={styles.loginButton} onPress={onRegister}>
+          <Text style={styles.loginButtonText}>Cadastrar</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.loginFooter}>
+        <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
+        <TouchableOpacity onPress={onBackToLogin}>
+          <Text style={styles.loginRegisterLink}>Entrar</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+});
+
+// Componente da Tela de Cadastro de Lojista (fora do App para evitar recriações)
+const RegisterMerchantScreen = memo(({
+  registerName,
+  registerEmail,
+  registerCpf,
+  registerPassword,
+  registerConfirmPassword,
+  onNameChange,
+  onEmailChange,
+  onCpfChange,
+  onPasswordChange,
+  onConfirmPasswordChange,
+  onRegister,
+  onBack,
+  onBackToLogin,
+  styles
+}: RegisterMerchantScreenProps) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  return (
+    <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
+      <StatusBar style="dark" />
+
+      {/* Header Section */}
+      <View style={styles.loginHeaderSection}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
+        >
+          <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
+        </TouchableOpacity>
+        <View style={styles.loginLogoContainer}>
+          <View style={styles.loginLogoBackground}>
+            <MaterialIcons name="store" size={40} color="white" />
+          </View>
+        </View>
+
+        <Text style={styles.loginWelcomeText}>Cadastro de Lojista</Text>
+        <Text style={styles.loginSubtitleText}>Preencha os dados da sua loja</Text>
+      </View>
+
+      {/* Register Form */}
+      <View style={styles.loginFormCard}>
+        {/* Nome da Loja */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Nome da Loja *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="store" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-name-merchant"
+              style={styles.loginTextInput}
+              placeholder="Nome da sua loja"
+              placeholderTextColor="#9CA3AF"
+              value={registerName}
+              onChangeText={onNameChange}
+            />
+          </View>
+        </View>
+
+        {/* Email */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>E-mail *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-email-merchant"
+              style={styles.loginTextInput}
+              placeholder="seu@email.com"
+              placeholderTextColor="#9CA3AF"
+              value={registerEmail}
+              onChangeText={onEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+
+        {/* CPF/CNPJ */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>CPF/CNPJ *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-cpf-merchant"
+              style={styles.loginTextInput}
+              placeholder="000.000.000-00 ou 00.000.000/0000-00"
+              placeholderTextColor="#9CA3AF"
+              value={registerCpf}
+              onChangeText={onCpfChange}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        {/* Senha */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Senha *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-password-merchant"
+              style={styles.loginTextInput}
+              placeholder="Mínimo 6 caracteres"
+              placeholderTextColor="#9CA3AF"
+              value={registerPassword}
+              onChangeText={onPasswordChange}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <MaterialIcons
+                name={showPassword ? "visibility" : "visibility-off"}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Confirmar Senha */}
+        <View style={styles.loginInputContainer}>
+          <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
+          <View style={styles.loginInputWrapper}>
+            <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
+            <TextInput
+              key="register-confirm-password-merchant"
+              style={styles.loginTextInput}
+              placeholder="Digite a senha novamente"
+              placeholderTextColor="#9CA3AF"
+              value={registerConfirmPassword}
+              onChangeText={onConfirmPasswordChange}
+              secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <MaterialIcons
+                name={showConfirmPassword ? "visibility" : "visibility-off"}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Register Button */}
+        <TouchableOpacity style={styles.loginButton} onPress={onRegister}>
+          <Text style={styles.loginButtonText}>Cadastrar Loja</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.loginFooter}>
+        <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
+        <TouchableOpacity onPress={onBackToLogin}>
+          <Text style={styles.loginRegisterLink}>Entrar</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+});
 
 export default function App() {
   const [searchText, setSearchText] = useState('');
@@ -449,53 +1011,68 @@ export default function App() {
     );
   }, [authState.user]);
 
-  // Verificar estado de autenticação do Firebase
+  // Verificar sessão do usuário ao carregar o app
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      setIsLoadingAuth(false);
+    const checkSession = async () => {
+      setIsLoadingAuth(true);
+      
+      try {
+        const userId = getSession();
+        
+        if (userId) {
+          // Buscar dados do usuário do Firestore
+          const firestoreData = await getUserDataFromFirestore(userId);
+          
+          if (firestoreData && firestoreData.id) {
+            const user: User = {
+              id: firestoreData.id,
+              email: firestoreData.email || '',
+              cpf: firestoreData.cpf || '',
+              name: firestoreData.name || '',
+              role: firestoreData.role || 'cliente',
+              permissionLevel: firestoreData.permissionLevel || 'cliente',
+              isMaster: firestoreData.isMaster || false,
+              storePermissions: firestoreData.storePermissions || [],
+              birthDate: firestoreData.birthDate,
+              gender: firestoreData.gender,
+              address: firestoreData.address,
+            };
 
-      if (firebaseUser) {
-        // Usuário está autenticado
-        // Nota: Você precisará buscar os dados adicionais do usuário (CPF, role, permissões, etc.) 
-        // do Firestore ou outro banco de dados, pois o Firebase Auth só armazena email/uid
-        const user: User = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          cpf: '', // Será necessário buscar do Firestore
-          name: firebaseUser.displayName || '',
-          role: 'cliente', // Será necessário buscar do Firestore
-          permissionLevel: 'cliente', // Permissão padrão - será necessário buscar do Firestore
-          isMaster: false, // Será necessário buscar do Firestore
-          storePermissions: [], // Será necessário buscar do Firestore
-        };
-
-        // Só atualiza se o estado realmente mudou
-        setAuthState((prevState) => {
-          if (prevState.isLoggedIn && prevState.user?.id === user.id) {
-            return prevState; // Não atualiza se já está logado com o mesmo usuário
+            setAuthState({
+              isLoggedIn: true,
+              user: user,
+              authScreen: 'login',
+            });
+          } else {
+            // Sessão inválida, limpar
+            clearSession();
+            setAuthState({
+              isLoggedIn: false,
+              user: null,
+              authScreen: 'login',
+            });
           }
-          return {
-            isLoggedIn: true,
-            user: user,
-            authScreen: 'login',
-          };
-        });
-      } else {
-        // Usuário não está autenticado
-        setAuthState((prevState) => {
-          if (!prevState.isLoggedIn) {
-            return prevState; // Não atualiza se já não está logado
-          }
-          return {
+        } else {
+          setAuthState({
             isLoggedIn: false,
             user: null,
             authScreen: 'login',
-          };
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao verificar sessão:', error);
+        clearSession();
+        setAuthState({
+          isLoggedIn: false,
+          user: null,
+          authScreen: 'login',
         });
+      } finally {
+        setIsLoadingAuth(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    checkSession();
   }, []);
 
   const handleLogout = async () => {
@@ -510,11 +1087,16 @@ export default function App() {
         {
           text: 'Sair',
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             try {
-              await signOut(auth);
+              clearSession();
               setLoginEmail('');
               setLoginPassword('');
+              setAuthState({
+                isLoggedIn: false,
+                user: null,
+                authScreen: 'login',
+              });
             } catch (error: any) {
               Alert.alert('Erro', 'Erro ao fazer logout: ' + (error.message || 'Erro desconhecido'));
             }
@@ -542,11 +1124,38 @@ export default function App() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      const firebaseUser = userCredential.user;
+      const userData = await loginWithEmailAndPassword(loginEmail, loginPassword);
 
-      // O estado de autenticação será atualizado automaticamente pelo useEffect
-      // que monitora onAuthStateChanged
+      if (!userData || !userData.id) {
+        Alert.alert('Erro', 'E-mail ou senha incorretos');
+        return;
+      }
+
+      // Salvar sessão
+      saveSession(userData.id);
+
+      // Criar objeto User
+      const user: User = {
+        id: userData.id,
+        email: userData.email || '',
+        cpf: userData.cpf || '',
+        name: userData.name || '',
+        role: userData.role || 'cliente',
+        permissionLevel: userData.permissionLevel || 'cliente',
+        isMaster: userData.isMaster || false,
+        storePermissions: userData.storePermissions || [],
+        birthDate: userData.birthDate,
+        gender: userData.gender,
+        address: userData.address,
+      };
+
+      // Atualizar estado
+      setAuthState({
+        isLoggedIn: true,
+        user: user,
+        authScreen: 'login',
+      });
+
       Alert.alert('Sucesso', 'Login realizado com sucesso!');
 
       // Limpar campos
@@ -554,18 +1163,8 @@ export default function App() {
       setLoginPassword('');
     } catch (error: any) {
       let errorMessage = 'Erro ao fazer login';
-
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Usuário não encontrado';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Senha incorreta';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'E-mail inválido';
-      } else if (error.code === 'auth/user-disabled') {
-        errorMessage = 'Usuário desabilitado';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Muitas tentativas. Tente novamente mais tarde';
-      } else if (error.message) {
+      
+      if (error.message) {
         errorMessage = error.message;
       }
 
@@ -590,8 +1189,8 @@ export default function App() {
       Alert.alert('Erro', 'Por favor, preencha o nome completo');
       return;
     }
-    if (!registerCpf.trim() || !validateCPF(registerCpf.replace(/[^\d]/g, ''))) {
-      Alert.alert('Erro', 'Por favor, insira um CPF válido');
+    if (!registerCpf.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha o CPF');
       return;
     }
 
@@ -609,19 +1208,68 @@ export default function App() {
     }
 
     try {
-      // Criar usuário no Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, registerPassword);
-      const firebaseUser = userCredential.user;
+      // Preparar dados do usuário
+      const userData: any = {
+        email: registerEmail,
+        password: registerPassword, // NOTA: Em produção, deve ser hash
+        name: registerName,
+        cpf: registerCpf.replace(/[^\d]/g, ''),
+        role: selectedRole || 'cliente',
+        permissionLevel: selectedRole === 'lojista' ? 'lojista' : 'cliente',
+        isMaster: false,
+        storePermissions: [],
+      };
 
-      // Atualizar o displayName do usuário com o nome fornecido
-      await updateProfile(firebaseUser, { displayName: registerName });
+      // Adicionar dados específicos de cliente
+      if (selectedRole === 'cliente') {
+        userData.birthDate = registerBirthDate;
+        userData.gender = registerGender;
+        userData.address = {
+          street: registerStreet,
+          number: registerNumber,
+          complement: registerComplement || '',
+          neighborhood: registerNeighborhood,
+          city: registerCity,
+          state: registerState,
+          zipCode: registerZipCode,
+        };
+      }
 
-      // Nota: Para salvar dados adicionais (CPF, role, endereço, etc.), 
-      // você precisará usar o Firestore ou Realtime Database
-      // Por enquanto, apenas atualizamos o displayName no Firebase Auth
+      // Criar usuário no Firestore
+      const userId = await createUser(userData);
 
-      // O estado de autenticação será atualizado automaticamente pelo useEffect
-      // que monitora onAuthStateChanged
+      if (!userId) {
+        throw new Error('Erro ao criar usuário');
+      }
+
+      // Salvar sessão e fazer login automático
+      saveSession(userId);
+
+      // Buscar dados completos do usuário
+      const firestoreData = await getUserDataFromFirestore(userId);
+
+      if (firestoreData && firestoreData.id) {
+        const user: User = {
+          id: firestoreData.id,
+          email: firestoreData.email || '',
+          cpf: firestoreData.cpf || '',
+          name: firestoreData.name || '',
+          role: firestoreData.role || 'cliente',
+          permissionLevel: firestoreData.permissionLevel || 'cliente',
+          isMaster: firestoreData.isMaster || false,
+          storePermissions: firestoreData.storePermissions || [],
+          birthDate: firestoreData.birthDate,
+          gender: firestoreData.gender,
+          address: firestoreData.address,
+        };
+
+        setAuthState({
+          isLoggedIn: true,
+          user: user,
+          authScreen: 'login',
+        });
+      }
+
       Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
 
       // Limpar formulário
@@ -643,12 +1291,8 @@ export default function App() {
     } catch (error: any) {
       let errorMessage = 'Erro ao criar conta';
 
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.message && error.message.includes('já está em uso')) {
         errorMessage = 'Este e-mail já está em uso';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'E-mail inválido';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Senha muito fraca';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -1697,440 +2341,14 @@ export default function App() {
     );
   };
 
-  // Componente da Tela de Cadastro de Cliente
-  const RegisterClientScreen = () => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Callbacks estáveis para mudanças de tela
+  const handleBackToRegister = useCallback(() => {
+    setAuthState(prev => ({ ...prev, authScreen: 'register' }));
+  }, []);
 
-    return (
-      <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
-        <StatusBar style="dark" />
-
-        {/* Header Section */}
-        <View style={styles.loginHeaderSection}>
-          <TouchableOpacity
-            onPress={() => setAuthState({ ...authState, authScreen: 'register' })}
-            style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
-          >
-            <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.loginLogoContainer}>
-            <View style={styles.loginLogoBackground}>
-              <MaterialIcons name="account-balance-wallet" size={40} color="white" />
-            </View>
-          </View>
-
-          <Text style={styles.loginWelcomeText}>Cadastro de Cliente</Text>
-          <Text style={styles.loginSubtitleText}>Preencha seus dados para começar</Text>
-        </View>
-
-        {/* Register Form */}
-        <View style={styles.loginFormCard}>
-          {/* Nome Completo */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Nome Completo *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="person" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Seu nome completo"
-                placeholderTextColor="#9CA3AF"
-                value={registerName}
-                onChangeText={handleRegisterNameChange}
-              />
-            </View>
-          </View>
-
-          {/* Email */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>E-mail *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="seu@email.com"
-                placeholderTextColor="#9CA3AF"
-                value={registerEmail}
-                onChangeText={handleRegisterEmailChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          {/* CPF */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>CPF *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="000.000.000-00"
-                placeholderTextColor="#9CA3AF"
-                value={registerCpf}
-                onChangeText={handleRegisterCpfChange}
-                keyboardType="numeric"
-                maxLength={14}
-              />
-            </View>
-          </View>
-
-          {/* Data de Nascimento */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Data de Nascimento *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="calendar-today" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor="#9CA3AF"
-                value={registerBirthDate}
-                onChangeText={handleRegisterBirthDateChange}
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-          </View>
-
-          {/* Sexo */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Sexo</Text>
-            <View style={styles.registerGenderContainer}>
-              {(['masculino', 'feminino', 'outro', 'prefiro-nao-informar'] as Gender[]).map((gender) => (
-                <TouchableOpacity
-                  key={gender}
-                  style={[
-                    styles.registerGenderOption,
-                    registerGender === gender && styles.registerGenderOptionSelected
-                  ]}
-                  onPress={() => setRegisterGender(gender)}
-                >
-                  <Text style={[
-                    styles.registerGenderText,
-                    registerGender === gender && styles.registerGenderTextSelected
-                  ]}>
-                    {gender === 'masculino' ? 'Masculino' :
-                      gender === 'feminino' ? 'Feminino' :
-                        gender === 'outro' ? 'Outro' : 'Prefiro não informar'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Endereço - Rua */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Rua *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="place" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Nome da rua"
-                placeholderTextColor="#9CA3AF"
-                value={registerStreet}
-                onChangeText={handleRegisterStreetChange}
-              />
-            </View>
-          </View>
-
-          {/* Número e Complemento */}
-          <View style={styles.registerAddressRow}>
-            <View style={[styles.loginInputContainer, { flex: 1, marginRight: 10 }]}>
-              <Text style={styles.loginInputLabel}>Número *</Text>
-              <View style={styles.loginInputWrapper}>
-                <TextInput
-                  style={styles.loginTextInput}
-                  placeholder="123"
-                  placeholderTextColor="#9CA3AF"
-                  value={registerNumber}
-                  onChangeText={handleRegisterNumberChange}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-            <View style={[styles.loginInputContainer, { flex: 1 }]}>
-              <Text style={styles.loginInputLabel}>Complemento</Text>
-              <View style={styles.loginInputWrapper}>
-                <TextInput
-                  style={styles.loginTextInput}
-                  placeholder="Apto, Bloco..."
-                  placeholderTextColor="#9CA3AF"
-                  value={registerComplement}
-                  onChangeText={handleRegisterComplementChange}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Bairro */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Bairro *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="location-city" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Nome do bairro"
-                placeholderTextColor="#9CA3AF"
-                value={registerNeighborhood}
-                onChangeText={handleRegisterNeighborhoodChange}
-              />
-            </View>
-          </View>
-
-          {/* Cidade e Estado */}
-          <View style={styles.registerAddressRow}>
-            <View style={[styles.loginInputContainer, { flex: 2, marginRight: 10 }]}>
-              <Text style={styles.loginInputLabel}>Cidade *</Text>
-              <View style={styles.loginInputWrapper}>
-                <TextInput
-                  style={styles.loginTextInput}
-                  placeholder="Cidade"
-                  placeholderTextColor="#9CA3AF"
-                  value={registerCity}
-                  onChangeText={handleRegisterCityChange}
-                />
-              </View>
-            </View>
-            <View style={[styles.loginInputContainer, { flex: 1 }]}>
-              <Text style={styles.loginInputLabel}>UF *</Text>
-              <View style={styles.loginInputWrapper}>
-                <TextInput
-                  style={styles.loginTextInput}
-                  placeholder="SP"
-                  placeholderTextColor="#9CA3AF"
-                  value={registerState}
-                  onChangeText={handleRegisterStateChange}
-                  maxLength={2}
-                  autoCapitalize="characters"
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* CEP */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>CEP *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="local-post-office" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="00000-000"
-                placeholderTextColor="#9CA3AF"
-                value={registerZipCode}
-                onChangeText={handleRegisterZipCodeChange}
-                keyboardType="numeric"
-                maxLength={9}
-              />
-            </View>
-          </View>
-
-          {/* Senha */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Senha *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Mínimo 6 caracteres"
-                placeholderTextColor="#9CA3AF"
-                value={registerPassword}
-                onChangeText={handleRegisterPasswordChange}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <MaterialIcons
-                  name={showPassword ? "visibility" : "visibility-off"}
-                  size={18}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirmar Senha */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Digite a senha novamente"
-                placeholderTextColor="#9CA3AF"
-                value={registerConfirmPassword}
-                onChangeText={handleRegisterConfirmPasswordChange}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <MaterialIcons
-                  name={showConfirmPassword ? "visibility" : "visibility-off"}
-                  size={18}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Register Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
-            <Text style={styles.loginButtonText}>Cadastrar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.loginFooter}>
-          <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
-          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'login' })}>
-            <Text style={styles.loginRegisterLink}>Entrar</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    );
-  };
-
-  // Componente da Tela de Cadastro de Lojista (versão simplificada)
-  const RegisterMerchantScreen = () => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-    return (
-      <ScrollView style={styles.loginContainer} showsVerticalScrollIndicator={false}>
-        <StatusBar style="dark" />
-
-        {/* Header Section */}
-        <View style={styles.loginHeaderSection}>
-          <TouchableOpacity
-            onPress={() => setAuthState({ ...authState, authScreen: 'register' })}
-            style={{ position: 'absolute', left: 0, top: 0, zIndex: 10 }}
-          >
-            <Text style={[styles.backIcon, { color: '#1F2937' }]}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.loginLogoContainer}>
-            <View style={styles.loginLogoBackground}>
-              <MaterialIcons name="store" size={40} color="white" />
-            </View>
-          </View>
-
-          <Text style={styles.loginWelcomeText}>Cadastro de Lojista</Text>
-          <Text style={styles.loginSubtitleText}>Preencha os dados da sua loja</Text>
-        </View>
-
-        {/* Register Form */}
-        <View style={styles.loginFormCard}>
-          {/* Nome da Loja */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Nome da Loja *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="store" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Nome da sua loja"
-                placeholderTextColor="#9CA3AF"
-                value={registerName}
-                onChangeText={handleRegisterNameChange}
-              />
-            </View>
-          </View>
-
-          {/* Email */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>E-mail *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="email" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="seu@email.com"
-                placeholderTextColor="#9CA3AF"
-                value={registerEmail}
-                onChangeText={handleRegisterEmailChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          {/* CPF/CNPJ */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>CPF/CNPJ *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="badge" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                placeholderTextColor="#9CA3AF"
-                value={registerCpf}
-                onChangeText={(text) => {
-                  const formatted = formatCPF(text);
-                  if (formatted.replace(/[^\d]/g, '').length <= 14) {
-                    setRegisterCpf(formatted);
-                  }
-                }}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          {/* Senha */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Senha *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Mínimo 6 caracteres"
-                placeholderTextColor="#9CA3AF"
-                value={registerPassword}
-                onChangeText={handleRegisterPasswordChange}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <MaterialIcons
-                  name={showPassword ? "visibility" : "visibility-off"}
-                  size={18}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirmar Senha */}
-          <View style={styles.loginInputContainer}>
-            <Text style={styles.loginInputLabel}>Confirmar Senha *</Text>
-            <View style={styles.loginInputWrapper}>
-              <MaterialIcons name="lock" size={18} color="#6B7280" style={{ marginRight: 12 }} />
-              <TextInput
-                style={styles.loginTextInput}
-                placeholder="Digite a senha novamente"
-                placeholderTextColor="#9CA3AF"
-                value={registerConfirmPassword}
-                onChangeText={handleRegisterConfirmPasswordChange}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <MaterialIcons
-                  name={showConfirmPassword ? "visibility" : "visibility-off"}
-                  size={18}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Register Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
-            <Text style={styles.loginButtonText}>Cadastrar Loja</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.loginFooter}>
-          <Text style={styles.loginFooterText}>Já tem uma conta? </Text>
-          <TouchableOpacity onPress={() => setAuthState({ ...authState, authScreen: 'login' })}>
-            <Text style={styles.loginRegisterLink}>Entrar</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    );
-  };
+  const handleBackToLogin = useCallback(() => {
+    setAuthState(prev => ({ ...prev, authScreen: 'login' }));
+  }, []);
 
   // Componente da Tela de Ranking
   const RankingScreen = () => {
@@ -3339,6 +3557,7 @@ export default function App() {
     const user = authState.user;
     const userName = user?.name || user?.email?.split('@')[0] || 'Usuário';
     const userEmail = user?.email || '';
+    const isLojista = user?.role === 'lojista' || user?.permissionLevel === 'lojista';
 
     return (
       <View style={styles.container}>
@@ -3350,7 +3569,7 @@ export default function App() {
             <TouchableOpacity onPress={() => setCurrentScreen('home')}>
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.profileTitle}>Meu Perfil</Text>
+            <Text style={styles.profileTitle}>{isLojista ? 'Minha Loja' : 'Meu Perfil'}</Text>
             <TouchableOpacity>
               <MaterialIcons name="settings" size={20} color="white" />
             </TouchableOpacity>
@@ -3359,90 +3578,215 @@ export default function App() {
           {/* Profile Info Section */}
           <View style={styles.profileInfoSection}>
             <View style={styles.profileAvatar}>
-              <MaterialIcons name="person" size={48} color="#9CA3AF" />
+              <MaterialIcons name={isLojista ? "store" : "person"} size={48} color="#9CA3AF" />
             </View>
             <Text style={styles.profileName}>{userName}</Text>
             <Text style={styles.profileEmail}>{userEmail}</Text>
 
             <View style={styles.profileStats}>
-              <View style={styles.profileStatItem}>
-                <Text style={styles.profileStatValue}>R$ 245,80</Text>
-                <Text style={styles.profileStatLabel}>Cashback Total</Text>
-              </View>
-              <View style={styles.profileStatDivider} />
-              <View style={styles.profileStatItem}>
-                <Text style={styles.profileStatValue}>32</Text>
-                <Text style={styles.profileStatLabel}>Compras</Text>
-              </View>
+              {isLojista ? (
+                <>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>R$ 12.450,00</Text>
+                    <Text style={styles.profileStatLabel}>Receita Total</Text>
+                  </View>
+                  <View style={styles.profileStatDivider} />
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>156</Text>
+                    <Text style={styles.profileStatLabel}>Vendas</Text>
+                  </View>
+                  <View style={styles.profileStatDivider} />
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>42</Text>
+                    <Text style={styles.profileStatLabel}>Produtos</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>R$ 245,80</Text>
+                    <Text style={styles.profileStatLabel}>Cashback Total</Text>
+                  </View>
+                  <View style={styles.profileStatDivider} />
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>32</Text>
+                    <Text style={styles.profileStatLabel}>Compras</Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </View>
 
         {/* Main Content */}
         <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
-          {/* Achievements Section */}
-          <View style={styles.achievementsCard}>
-            <View style={styles.achievementsHeader}>
-              <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
-              <Text style={styles.achievementsTitle}>Conquistas</Text>
-            </View>
-            <View style={styles.achievementsButtons}>
-              <TouchableOpacity style={styles.achievementButton}>
-                <MaterialIcons name="star" size={24} color="#FFD700" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.achievementButton}>
-                <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.achievementButton}>
-                <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Main Menu Section */}
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuItemLeft}>
-                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <MaterialIcons name="account-balance-wallet" size={20} color="white" />
+          {isLojista ? (
+            <>
+              {/* Dashboard Stats for Lojista */}
+              <View style={styles.achievementsCard}>
+                <View style={styles.achievementsHeader}>
+                  <MaterialIcons name="dashboard" size={24} color="#5C8FFC" />
+                  <Text style={styles.achievementsTitle}>Dashboard</Text>
                 </View>
-                <View style={styles.menuItemInfo}>
-                  <Text style={styles.menuItemTitle}>Minha Carteira</Text>
-                  <Text style={styles.menuItemSubtitle}>R$ 245,80 disponível</Text>
-                </View>
-              </View>
-              <Text style={styles.arrowIcon}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={() => setProfileSubScreen('purchases')}>
-              <View style={styles.menuItemLeft}>
-                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <MaterialIcons name="shopping-bag" size={20} color="white" />
-                </View>
-                <View style={styles.menuItemInfo}>
-                  <Text style={styles.menuItemTitle}>Minhas Compras</Text>
-                  <Text style={styles.menuItemSubtitle}>Histórico completo</Text>
-                </View>
-              </View>
-              <Text style={styles.arrowIcon}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuItemLeft}>
-                <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
-                  <MaterialIcons name="notifications" size={20} color="white" />
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>3</Text>
+                <View style={styles.merchantStatsGrid}>
+                  <View style={styles.merchantStatCard}>
+                    <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
+                    <Text style={styles.merchantStatValue}>R$ 2.340,00</Text>
+                    <Text style={styles.merchantStatLabel}>Este Mês</Text>
+                  </View>
+                  <View style={styles.merchantStatCard}>
+                    <MaterialIcons name="people" size={24} color="#5C8FFC" />
+                    <Text style={styles.merchantStatValue}>89</Text>
+                    <Text style={styles.merchantStatLabel}>Clientes</Text>
+                  </View>
+                  <View style={styles.merchantStatCard}>
+                    <MaterialIcons name="star" size={24} color="#FFD700" />
+                    <Text style={styles.merchantStatValue}>4.8</Text>
+                    <Text style={styles.merchantStatLabel}>Avaliação</Text>
+                  </View>
+                  <View style={styles.merchantStatCard}>
+                    <MaterialIcons name="shopping-cart" size={24} color="#DC2626" />
+                    <Text style={styles.merchantStatValue}>12</Text>
+                    <Text style={styles.merchantStatLabel}>Pedidos</Text>
                   </View>
                 </View>
-                <View style={styles.menuItemInfo}>
-                  <Text style={styles.menuItemTitle}>Notificações</Text>
-                  <Text style={styles.menuItemSubtitle}>3 novas ofertas</Text>
+              </View>
+
+              {/* Main Menu Section for Lojista */}
+              <View style={styles.menuCard}>
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="store" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Gerenciar Loja</Text>
+                      <Text style={styles.menuItemSubtitle}>Editar informações da loja</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="inventory" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Meus Produtos</Text>
+                      <Text style={styles.menuItemSubtitle}>42 produtos cadastrados</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="receipt" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Pedidos</Text>
+                      <Text style={styles.menuItemSubtitle}>12 pedidos pendentes</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="analytics" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Relatórios</Text>
+                      <Text style={styles.menuItemSubtitle}>Vendas e estatísticas</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="account-balance-wallet" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Financeiro</Text>
+                      <Text style={styles.menuItemSubtitle}>Extrato e pagamentos</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Achievements Section for Cliente */}
+              <View style={styles.achievementsCard}>
+                <View style={styles.achievementsHeader}>
+                  <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
+                  <Text style={styles.achievementsTitle}>Conquistas</Text>
+                </View>
+                <View style={styles.achievementsButtons}>
+                  <TouchableOpacity style={styles.achievementButton}>
+                    <MaterialIcons name="star" size={24} color="#FFD700" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.achievementButton}>
+                    <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.achievementButton}>
+                    <MaterialIcons name="emoji-events" size={24} color="#FFD700" />
+                  </TouchableOpacity>
                 </View>
               </View>
-              <Text style={styles.arrowIcon}>›</Text>
-            </TouchableOpacity>
-          </View>
+
+              {/* Main Menu Section for Cliente */}
+              <View style={styles.menuCard}>
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="account-balance-wallet" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Minha Carteira</Text>
+                      <Text style={styles.menuItemSubtitle}>R$ 245,80 disponível</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => setProfileSubScreen('purchases')}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="shopping-bag" size={20} color="white" />
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Minhas Compras</Text>
+                      <Text style={styles.menuItemSubtitle}>Histórico completo</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
+                      <MaterialIcons name="notifications" size={20} color="white" />
+                      <View style={styles.notificationBadge}>
+                        <Text style={styles.notificationBadgeText}>3</Text>
+                      </View>
+                    </View>
+                    <View style={styles.menuItemInfo}>
+                      <Text style={styles.menuItemTitle}>Notificações</Text>
+                      <Text style={styles.menuItemSubtitle}>3 novas ofertas</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.arrowIcon}>›</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           {/* Settings & Logout Section */}
           <View style={styles.menuCard}>
@@ -3666,10 +4010,62 @@ export default function App() {
       return <RegisterRoleScreen />;
     }
     if (authState.authScreen === 'register-client') {
-      return <RegisterClientScreen />;
+      return (
+        <RegisterClientScreen
+          registerName={registerName}
+          registerEmail={registerEmail}
+          registerCpf={registerCpf}
+          registerBirthDate={registerBirthDate}
+          registerGender={registerGender}
+          registerStreet={registerStreet}
+          registerNumber={registerNumber}
+          registerComplement={registerComplement}
+          registerNeighborhood={registerNeighborhood}
+          registerCity={registerCity}
+          registerState={registerState}
+          registerZipCode={registerZipCode}
+          registerPassword={registerPassword}
+          registerConfirmPassword={registerConfirmPassword}
+          onNameChange={handleRegisterNameChange}
+          onEmailChange={handleRegisterEmailChange}
+          onCpfChange={handleRegisterCpfChange}
+          onBirthDateChange={handleRegisterBirthDateChange}
+          onGenderChange={handleRegisterGenderChange}
+          onStreetChange={handleRegisterStreetChange}
+          onNumberChange={handleRegisterNumberChange}
+          onComplementChange={handleRegisterComplementChange}
+          onNeighborhoodChange={handleRegisterNeighborhoodChange}
+          onCityChange={handleRegisterCityChange}
+          onStateChange={handleRegisterStateChange}
+          onZipCodeChange={handleRegisterZipCodeChange}
+          onPasswordChange={handleRegisterPasswordChange}
+          onConfirmPasswordChange={handleRegisterConfirmPasswordChange}
+          onRegister={handleRegister}
+          onBack={handleBackToRegister}
+          onBackToLogin={handleBackToLogin}
+          styles={styles}
+        />
+      );
     }
     if (authState.authScreen === 'register-merchant') {
-      return <RegisterMerchantScreen />;
+      return (
+        <RegisterMerchantScreen
+          registerName={registerName}
+          registerEmail={registerEmail}
+          registerCpf={registerCpf}
+          registerPassword={registerPassword}
+          registerConfirmPassword={registerConfirmPassword}
+          onNameChange={handleRegisterNameChange}
+          onEmailChange={handleRegisterEmailChange}
+          onCpfChange={handleRegisterCpfChange}
+          onPasswordChange={handleRegisterPasswordChange}
+          onConfirmPasswordChange={handleRegisterConfirmPasswordChange}
+          onRegister={handleRegister}
+          onBack={handleBackToRegister}
+          onBackToLogin={handleBackToLogin}
+          styles={styles}
+        />
+      );
     }
     return (
       <LoginScreenComponent
@@ -6327,6 +6723,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#2D3748',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  merchantStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  merchantStatCard: {
+    width: '48%',
+    backgroundColor: '#2D3748',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  merchantStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  merchantStatLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
   achievementIcon: {
     fontSize: 24,
