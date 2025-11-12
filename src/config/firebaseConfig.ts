@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAnalytics, Analytics } from "firebase/analytics";
+import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
@@ -21,14 +21,28 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 // Initialize Firestore
 const db: Firestore = getFirestore(app);
 
-// Initialize Analytics (only available in web environment)
+// Initialize Analytics (only if supported in the environment)
 let analytics: Analytics | null = null;
+
+// Inicializar Analytics de forma assíncrona apenas se suportado
 if (typeof window !== "undefined") {
-  try {
-    analytics = getAnalytics(app);
-  } catch (error) {
-    console.warn("Analytics initialization failed:", error);
-  }
+  // Verificar suporte antes de inicializar
+  isSupported()
+    .then((supported) => {
+      if (supported) {
+        try {
+          analytics = getAnalytics(app);
+        } catch (error) {
+          // Silenciar erro se Analytics não puder ser inicializado
+          // Isso é normal em alguns ambientes (ex: desenvolvimento local)
+        }
+      }
+      // Se não for suportado, analytics permanece null (comportamento esperado)
+    })
+    .catch(() => {
+      // Analytics não é suportado neste ambiente, isso é normal
+      // Não fazer nada, analytics já é null por padrão
+    });
 }
 
 export { app, db, analytics };

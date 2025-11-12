@@ -8,8 +8,23 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
-    // Regras para outras coleções podem ser adicionadas aqui
-    // Por exemplo, lojas, produtos, etc.
+    // Regras para a coleção de lojas
+    match /stores/{storeId} {
+      // Permitir leitura para todos (lojas públicas)
+      allow read: if true;
+      // Permitir escrita apenas para o dono da loja
+      // Em produção, verificar se request.auth.uid == resource.data.ownerId
+      allow write: if true;
+    }
+    
+    // Regras para a coleção de produtos
+    match /products/{productId} {
+      // Permitir leitura para todos (produtos públicos)
+      allow read: if true;
+      // Permitir escrita apenas para o dono da loja
+      // Em produção, verificar se o usuário é dono da loja do produto
+      allow write: if true;
+    }
   }
 }
 

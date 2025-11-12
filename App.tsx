@@ -20,6 +20,20 @@ import {
   createUser 
 } from './src/utils/userService';
 import { getSession, saveSession, clearSession } from './src/utils/sessionService';
+import {
+  getStoreById,
+  getStoresByOwner,
+  createStore,
+  updateStore,
+  FirestoreStoreData
+} from './src/utils/storeService';
+import {
+  getProductsByStore,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  FirestoreProductData
+} from './src/utils/productService';
 
 // Helper function to render icon
 const renderIcon = (icon: string, iconType: string = 'MaterialIcons', size: number = 24, color: string = 'white') => {
@@ -805,6 +819,13 @@ export default function App() {
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [storeSubScreen, setStoreSubScreen] = useState<string | null>(null);
+  
+  // Estados para gerenciamento de loja e produtos
+  const [userStore, setUserStore] = useState<FirestoreStoreData | null>(null);
+  const [userProducts, setUserProducts] = useState<FirestoreProductData[]>([]);
+  const [editingProduct, setEditingProduct] = useState<FirestoreProductData | null>(null);
+  const [isLoadingStore, setIsLoadingStore] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
   // Estados para autenticação
   const [loginEmail, setLoginEmail] = useState('');
@@ -3552,6 +3573,1226 @@ export default function App() {
   };
 
   // Componente da Tela de Perfil
+  // Função para carregar loja do usuário
+  const loadUserStore = useCallback(async () => {
+    const user = authState.user;
+    if (!user || !user.id) {
+      setIsLoadingStore(false);
+      setUserStore(null);
+      return;
+    }
+
+    setIsLoadingStore(true);
+    try {
+      const stores = await getStoresByOwner(user.id);
+      if (stores.length > 0) {
+        setUserStore(stores[0]);
+        // Carregar produtos da loja
+        const products = await getProductsByStore(stores[0].id || '');
+        setUserProducts(products || []);
+      } else {
+        // Não tem loja, limpar estado
+        setUserStore(null);
+        setUserProducts([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar loja:', error);
+      setUserStore(null);
+      setUserProducts([]);
+    } finally {
+      setIsLoadingStore(false);
+    }
+  }, [authState.user]);
+
+  // Carregar loja quando o usuário estiver logado e for lojista
+  useEffect(() => {
+    const user = authState.user;
+    const isLojista = user?.role === 'lojista' || user?.permissionLevel === 'lojista';
+    if (authState.isLoggedIn && isLojista) {
+      loadUserStore();
+    }
+  }, [authState.isLoggedIn, authState.user, loadUserStore]);
+
+  // Tela de Gerenciamento de Loja
+  const ManageStoreScreen = () => {
+    const user = authState.user;
+    const [storeName, setStoreName] = useState('');
+    const [storeCategory, setStoreCategory] = useState('');
+    const [storeAddress, setStoreAddress] = useState('');
+    const [storePhone, setStorePhone] = useState('');
+    const [storeEmail, setStoreEmail] = useState('');
+    const [storeDescription, setStoreDescription] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Atualizar campos quando userStore for carregado
+    useEffect(() => {
+      if (userStore) {
+        setStoreName(userStore.name || '');
+        setStoreCategory(userStore.category || '');
+        setStoreAddress(userStore.address || '');
+        setStorePhone(userStore.phone || '');
+        setStoreEmail(userStore.email || '');
+        setStoreDescription(userStore.description || '');
+      }
+    }, [userStore]);
+
+    const handleSaveStore = async () => {
+      if (!user || !user.id) {
+        Alert.alert('Erro', 'Usuário não encontrado');
+        return;
+      }
+
+      if (!storeName.trim()) {
+        Alert.alert('Erro', 'O nome da loja é obrigatório');
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        if (userStore?.id) {
+          // Atualizar loja existente
+          const success = await updateStore(userStore.id, {
+            name: storeName,
+            category: storeCategory,
+            address: storeAddress,
+            phone: storePhone,
+            email: storeEmail,
+            description: storeDescription,
+          });
+          if (success) {
+            Alert.alert('Sucesso', 'Loja atualizada com sucesso!');
+            await loadUserStore();
+            setProfileSubScreen(null);
+          } else {
+            Alert.alert('Erro', 'Erro ao atualizar loja');
+          }
+        } else {
+          // Criar nova loja
+          const storeId = await createStore({
+            name: storeName,
+            ownerId: user.id,
+            category: storeCategory,
+            address: storeAddress,
+            phone: storePhone,
+            email: storeEmail,
+            description: storeDescription,
+            isActive: true,
+          });
+          if (storeId) {
+            Alert.alert('Sucesso', 'Loja criada com sucesso!');
+            await loadUserStore();
+            setProfileSubScreen(null);
+          } else {
+            Alert.alert('Erro', 'Erro ao criar loja');
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao salvar loja:', error);
+        Alert.alert('Erro', 'Erro ao salvar loja');
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity onPress={() => setProfileSubScreen(null)}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>Gerenciar Loja</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.menuCard}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Nome da Loja *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={storeName}
+                onChangeText={setStoreName}
+                placeholder="Digite o nome da loja"
+                placeholderTextColor="#6B7280"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Categoria</Text>
+              <TextInput
+                style={styles.formInput}
+                value={storeCategory}
+                onChangeText={setStoreCategory}
+                placeholder="Ex: Eletrônicos, Roupas, Alimentos..."
+                placeholderTextColor="#6B7280"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Endereço</Text>
+              <TextInput
+                style={styles.formInput}
+                value={storeAddress}
+                onChangeText={setStoreAddress}
+                placeholder="Digite o endereço da loja"
+                placeholderTextColor="#6B7280"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Telefone</Text>
+              <TextInput
+                style={styles.formInput}
+                value={storePhone}
+                onChangeText={setStorePhone}
+                placeholder="(00) 00000-0000"
+                placeholderTextColor="#6B7280"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>E-mail</Text>
+              <TextInput
+                style={styles.formInput}
+                value={storeEmail}
+                onChangeText={setStoreEmail}
+                placeholder="contato@loja.com"
+                placeholderTextColor="#6B7280"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Descrição</Text>
+              <TextInput
+                style={[styles.formInput, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={storeDescription}
+                onChangeText={setStoreDescription}
+                placeholder="Descreva sua loja..."
+                placeholderTextColor="#6B7280"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, isSaving && styles.primaryButtonDisabled]}
+              onPress={handleSaveStore}
+              disabled={isSaving}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isSaving ? 'Salvando...' : userStore?.id ? 'Atualizar Loja' : 'Criar Loja'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Tela de Gerenciamento de Produtos (MOCKADA)
+  const ManageProductsScreen = () => {
+    // Dados mockados para desenvolvimento
+    const [mockProducts] = useState<FirestoreProductData[]>([
+      {
+        id: '1',
+        storeId: userStore?.id || 'mock-store',
+        name: 'Produto Exemplo 1',
+        description: 'Descrição do produto exemplo',
+        price: 99.90,
+        originalPrice: 149.90,
+        category: 'Eletrônicos',
+        stock: 10,
+        isActive: true,
+        rating: 4.5,
+        reviewsCount: 23,
+      },
+      {
+        id: '2',
+        storeId: userStore?.id || 'mock-store',
+        name: 'Produto Exemplo 2',
+        description: 'Outro produto de exemplo',
+        price: 199.90,
+        category: 'Roupas',
+        stock: 5,
+        isActive: true,
+        rating: 4.8,
+        reviewsCount: 15,
+      },
+    ]);
+
+    const [localProducts, setLocalProducts] = useState<FirestoreProductData[]>(mockProducts);
+
+    // Função de voltar
+    const handleGoBack = useCallback(() => {
+      setProfileSubScreen(null);
+    }, []);
+
+    const handleDeleteProduct = (productId: string) => {
+      Alert.alert(
+        'Confirmar Exclusão',
+        'Tem certeza que deseja excluir este produto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: () => {
+              setLocalProducts((prev) => prev.filter((p) => p.id !== productId));
+              Alert.alert('Sucesso', 'Produto excluído com sucesso!');
+            },
+          },
+        ]
+      );
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity 
+              onPress={handleGoBack}
+              style={{ zIndex: 1000, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}
+              activeOpacity={0.7}
+              disabled={false}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>Meus Produtos</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                if (!userStore?.id) {
+                  Alert.alert('Aviso', 'Você precisa criar uma loja primeiro');
+                  return;
+                }
+                setEditingProduct(null);
+                setProfileSubScreen('add-product');
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="add" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView 
+          style={styles.profileContent} 
+          showsVerticalScrollIndicator={false}
+        >
+          {localProducts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="inventory" size={64} color="#6B7280" />
+              <Text style={styles.emptyText}>Nenhum produto cadastrado</Text>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => {
+                  setEditingProduct(null);
+                  setProfileSubScreen('add-product');
+                }}
+              >
+                <Text style={styles.primaryButtonText}>Adicionar Primeiro Produto</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Header com estatísticas */}
+              <View style={styles.productsHeader}>
+                <View style={styles.productsStatsCard}>
+                  <View style={styles.productsStatItem}>
+                    <MaterialIcons name="inventory" size={20} color="#5C8FFC" />
+                    <View style={styles.productsStatText}>
+                      <Text style={styles.productsStatValue}>{localProducts.length}</Text>
+                      <Text style={styles.productsStatLabel}>
+                        {localProducts.length === 1 ? 'Produto' : 'Produtos'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.productsStatDivider} />
+                  <View style={styles.productsStatItem}>
+                    <MaterialIcons name="check-circle" size={20} color="#10B981" />
+                    <View style={styles.productsStatText}>
+                      <Text style={styles.productsStatValue}>
+                        {localProducts.filter(p => p.isActive).length}
+                      </Text>
+                      <Text style={styles.productsStatLabel}>Ativos</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Lista de produtos */}
+              <View style={styles.productsList}>
+                {localProducts.map((product, index) => (
+                  <View key={product.id} style={styles.manageProductCard}>
+                    {/* Badge de status */}
+                    {product.isActive && (
+                      <View style={styles.productStatusBadge}>
+                        <MaterialIcons name="check-circle" size={12} color="#10B981" />
+                        <Text style={[styles.productStatusText, { marginLeft: 4 }]}>Ativo</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.productCardContent}>
+                      <View style={styles.productCardLeft}>
+                        <View style={styles.productHeaderRow}>
+                          <Text style={styles.productCardName}>{product.name}</Text>
+                        </View>
+                        
+                        {product.category && (
+                          <View style={styles.productCategoryBadge}>
+                            <Text style={styles.productCategoryText}>{product.category}</Text>
+                          </View>
+                        )}
+
+                        <View style={styles.productPriceRow}>
+                          <Text style={styles.productCardPrice}>
+                            R$ {product.price.toFixed(2).replace('.', ',')}
+                          </Text>
+                          {product.originalPrice && product.originalPrice > product.price && (
+                            <View style={styles.productDiscountContainer}>
+                              <Text style={styles.productCardOriginalPrice}>
+                                R$ {product.originalPrice.toFixed(2).replace('.', ',')}
+                              </Text>
+                              <View style={{ marginLeft: 8 }}>
+                                <View style={styles.productDiscountBadge}>
+                                  <Text style={styles.productDiscountText}>
+                                    {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+
+                        {product.stock !== undefined && (
+                          <View style={styles.productStockRow}>
+                            <MaterialIcons name="inventory-2" size={14} color="#9CA3AF" />
+                            <Text style={[styles.productCardStock, { marginLeft: 6 }]}>
+                              {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'} em estoque
+                            </Text>
+                          </View>
+                        )}
+
+                        {product.rating && (
+                          <View style={styles.productRatingRow}>
+                            <MaterialIcons name="star" size={14} color="#FBBF24" />
+                            <Text style={[styles.productRatingText, { marginLeft: 4 }]}>
+                              {product.rating.toFixed(1)} ({product.reviewsCount || 0} avaliações)
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      <View style={styles.productCardRight}>
+                        <TouchableOpacity
+                          style={[styles.productActionButton, styles.productEditButton, { marginBottom: 8 }]}
+                          onPress={() => {
+                            setEditingProduct(product);
+                            setProfileSubScreen('add-product');
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialIcons name="edit" size={18} color="#5C8FFC" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.productActionButton, styles.productDeleteButton]}
+                          onPress={() => product.id && handleDeleteProduct(product.id)}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialIcons name="delete" size={18} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Tela de Pedidos (MOCKADA)
+  const OrdersScreen = () => {
+    // Dados mockados de pedidos de produtos físicos
+    const [orders] = useState([
+      {
+        id: '1',
+        orderNumber: '#ORD-2024-001',
+        customerName: 'João Silva',
+        customerEmail: 'joao@email.com',
+        shippingAddress: 'Rua das Flores, 123 - São Paulo, SP',
+        items: [
+          { name: 'Camiseta Básica Preta', quantity: 2, price: 99.90, size: 'M' },
+          { name: 'Tênis Esportivo', quantity: 1, price: 299.90, size: '42' },
+        ],
+        total: 499.70,
+        status: 'pending', // pending, confirmed, processing, shipped, delivered, cancelled
+        paymentMethod: 'PIX',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 horas atrás
+        notes: 'Entregar na portaria',
+      },
+      {
+        id: '2',
+        orderNumber: '#ORD-2024-002',
+        customerName: 'Maria Santos',
+        customerEmail: 'maria@email.com',
+        shippingAddress: 'Av. Paulista, 1000 - São Paulo, SP',
+        items: [
+          { name: 'Vestido Floral', quantity: 1, price: 199.90, size: 'P' },
+        ],
+        total: 199.90,
+        status: 'confirmed',
+        paymentMethod: 'Cartão',
+        createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 horas atrás
+        notes: '',
+      },
+      {
+        id: '3',
+        orderNumber: '#ORD-2024-003',
+        customerName: 'Pedro Oliveira',
+        customerEmail: 'pedro@email.com',
+        shippingAddress: 'Rua Augusta, 500 - São Paulo, SP',
+        items: [
+          { name: 'Calça Jeans', quantity: 2, price: 249.90, size: 'G' },
+        ],
+        total: 499.80,
+        status: 'processing',
+        paymentMethod: 'PIX',
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 dia atrás
+        notes: 'Cliente preferiu retirar na loja',
+      },
+      {
+        id: '4',
+        orderNumber: '#ORD-2024-004',
+        customerName: 'Ana Costa',
+        customerEmail: 'ana@email.com',
+        shippingAddress: 'Rua Consolação, 200 - São Paulo, SP',
+        items: [
+          { name: 'Blusa de Moletom', quantity: 1, price: 149.90, size: 'M' },
+          { name: 'Shorts Esportivo', quantity: 1, price: 89.90, size: 'M' },
+        ],
+        total: 239.80,
+        status: 'shipped',
+        paymentMethod: 'Cartão',
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 dias atrás
+        trackingCode: 'BR123456789BR',
+        notes: '',
+      },
+      {
+        id: '5',
+        orderNumber: '#ORD-2024-005',
+        customerName: 'Carlos Mendes',
+        customerEmail: 'carlos@email.com',
+        shippingAddress: 'Av. Faria Lima, 1500 - São Paulo, SP',
+        items: [
+          { name: 'Tênis Casual', quantity: 1, price: 399.90, size: '43' },
+        ],
+        total: 399.90,
+        status: 'delivered',
+        paymentMethod: 'PIX',
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 dias atrás
+        notes: '',
+      },
+    ]);
+
+    const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const filteredOrders = filterStatus 
+      ? orders.filter(order => order.status === filterStatus)
+      : orders;
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'pending': return '#F59E0B';
+        case 'confirmed': return '#3B82F6';
+        case 'processing': return '#8B5CF6';
+        case 'shipped': return '#10B981';
+        case 'delivered': return '#059669';
+        case 'cancelled': return '#DC2626';
+        default: return '#6B7280';
+      }
+    };
+
+    const getStatusLabel = (status: string) => {
+      switch (status) {
+        case 'pending': return 'Aguardando Pagamento';
+        case 'confirmed': return 'Confirmado';
+        case 'processing': return 'Em Separação';
+        case 'shipped': return 'Enviado';
+        case 'delivered': return 'Entregue';
+        case 'cancelled': return 'Cancelado';
+        default: return status;
+      }
+    };
+
+    const getStatusIcon = (status: string) => {
+      switch (status) {
+        case 'pending': return 'schedule';
+        case 'confirmed': return 'check-circle';
+        case 'processing': return 'inventory';
+        case 'shipped': return 'local-shipping';
+        case 'delivered': return 'done-all';
+        case 'cancelled': return 'cancel';
+        default: return 'help';
+      }
+    };
+
+    const formatDate = (date: Date) => {
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) {
+        return `${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
+      } else if (hours > 0) {
+        return `${hours} ${hours === 1 ? 'hora' : 'horas'} atrás`;
+      } else {
+        return 'Agora';
+      }
+    };
+
+    const handleGoBack = useCallback(() => {
+      setProfileSubScreen(null);
+    }, []);
+
+    const handleUpdateStatus = (orderId: string, newStatus: string) => {
+      Alert.alert(
+        'Atualizar Status',
+        `Deseja atualizar o status do pedido para "${getStatusLabel(newStatus)}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            onPress: () => {
+              Alert.alert('Sucesso', 'Status atualizado! (Mockado)');
+            },
+          },
+        ]
+      );
+    };
+
+    const statusCounts = {
+      pending: orders.filter(o => o.status === 'pending').length,
+      confirmed: orders.filter(o => o.status === 'confirmed').length,
+      processing: orders.filter(o => o.status === 'processing').length,
+      shipped: orders.filter(o => o.status === 'shipped').length,
+      delivered: orders.filter(o => o.status === 'delivered').length,
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity 
+              onPress={handleGoBack}
+              style={{ zIndex: 1000, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>Pedidos</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+          {/* Estatísticas rápidas */}
+          <View style={styles.ordersStatsContainer}>
+            <View style={styles.ordersStatCard}>
+              <MaterialIcons name="schedule" size={20} color="#F59E0B" />
+              <Text style={styles.ordersStatValue}>{statusCounts.pending}</Text>
+              <Text style={styles.ordersStatLabel}>Aguardando</Text>
+            </View>
+            <View style={styles.ordersStatCard}>
+              <MaterialIcons name="inventory" size={20} color="#8B5CF6" />
+              <Text style={styles.ordersStatValue}>{statusCounts.processing}</Text>
+              <Text style={styles.ordersStatLabel}>Em Separação</Text>
+            </View>
+            <View style={styles.ordersStatCard}>
+              <MaterialIcons name="local-shipping" size={20} color="#10B981" />
+              <Text style={styles.ordersStatValue}>{statusCounts.shipped}</Text>
+              <Text style={styles.ordersStatLabel}>Enviados</Text>
+            </View>
+          </View>
+
+          {/* Filtros */}
+          <View style={styles.ordersFiltersContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ordersFilters}>
+              <TouchableOpacity
+                style={[styles.ordersFilterButton, !filterStatus && styles.ordersFilterButtonActive]}
+                onPress={() => setFilterStatus(null)}
+              >
+                <Text style={[styles.ordersFilterText, !filterStatus && styles.ordersFilterTextActive]}>
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ordersFilterButton, filterStatus === 'pending' && styles.ordersFilterButtonActive]}
+                onPress={() => setFilterStatus('pending')}
+              >
+                <Text style={[styles.ordersFilterText, filterStatus === 'pending' && styles.ordersFilterTextActive]}>
+                  Pendentes
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ordersFilterButton, filterStatus === 'confirmed' && styles.ordersFilterButtonActive]}
+                onPress={() => setFilterStatus('confirmed')}
+              >
+                <Text style={[styles.ordersFilterText, filterStatus === 'confirmed' && styles.ordersFilterTextActive]}>
+                  Confirmados
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ordersFilterButton, filterStatus === 'processing' && styles.ordersFilterButtonActive]}
+                onPress={() => setFilterStatus('processing')}
+              >
+                <Text style={[styles.ordersFilterText, filterStatus === 'processing' && styles.ordersFilterTextActive]}>
+                  Em Separação
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ordersFilterButton, filterStatus === 'shipped' && styles.ordersFilterButtonActive]}
+                onPress={() => setFilterStatus('shipped')}
+              >
+                <Text style={[styles.ordersFilterText, filterStatus === 'shipped' && styles.ordersFilterTextActive]}>
+                  Enviados
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
+          {/* Lista de pedidos */}
+          <View style={styles.ordersList}>
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <MaterialIcons name="receipt" size={64} color="#6B7280" />
+                <Text style={styles.emptyText}>Nenhum pedido encontrado</Text>
+              </View>
+            ) : (
+              filteredOrders.map((order) => (
+                <View key={order.id} style={styles.orderCard}>
+                  <View style={styles.orderCardHeader}>
+                    <View style={styles.orderCardHeaderLeft}>
+                      <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                      <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+                    </View>
+                    <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
+                      <MaterialIcons 
+                        name={getStatusIcon(order.status) as any} 
+                        size={14} 
+                        color={getStatusColor(order.status)} 
+                      />
+                      <Text style={[styles.orderStatusText, { color: getStatusColor(order.status) }]}>
+                        {getStatusLabel(order.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.orderCustomerInfo}>
+                    <MaterialIcons name="person" size={16} color="#9CA3AF" />
+                    <Text style={styles.orderCustomerName}>{order.customerName}</Text>
+                  </View>
+
+                  <View style={styles.orderItemsContainer}>
+                    {order.items.map((item, index) => (
+                      <View key={index} style={styles.orderItem}>
+                        <View style={styles.orderItemLeft}>
+                          <Text style={styles.orderItemName}>
+                            {item.quantity}x {item.name}
+                          </Text>
+                          {item.size && (
+                            <Text style={styles.orderItemSize}>Tamanho: {item.size}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.orderItemPrice}>
+                          R$ {(item.quantity * item.price).toFixed(2).replace('.', ',')}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {order.shippingAddress && (
+                    <View style={styles.orderShippingAddress}>
+                      <MaterialIcons name="location-on" size={16} color="#9CA3AF" />
+                      <Text style={styles.orderShippingAddressText}>{order.shippingAddress}</Text>
+                    </View>
+                  )}
+
+                  {order.trackingCode && (
+                    <View style={styles.orderTracking}>
+                      <MaterialIcons name="local-shipping" size={16} color="#5C8FFC" />
+                      <Text style={styles.orderTrackingLabel}>Código de Rastreamento:</Text>
+                      <Text style={styles.orderTrackingCode}>{order.trackingCode}</Text>
+                    </View>
+                  )}
+
+                  {order.notes && (
+                    <View style={styles.orderNotes}>
+                      <MaterialIcons name="note" size={14} color="#9CA3AF" />
+                      <Text style={styles.orderNotesText}>{order.notes}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.orderFooter}>
+                    <View style={styles.orderPaymentInfo}>
+                      <MaterialIcons 
+                        name={order.paymentMethod === 'PIX' ? 'account-balance-wallet' : 'credit-card'} 
+                        size={16} 
+                        color="#9CA3AF" 
+                      />
+                      <Text style={styles.orderPaymentText}>{order.paymentMethod}</Text>
+                    </View>
+                    <Text style={styles.orderTotal}>
+                      Total: R$ {order.total.toFixed(2).replace('.', ',')}
+                    </Text>
+                  </View>
+
+                  {/* Botões de ação */}
+                  {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                    <View style={styles.orderActions}>
+                      {order.status === 'pending' && (
+                        <TouchableOpacity
+                          style={[styles.orderActionButton, { backgroundColor: '#3B82F6' }]}
+                          onPress={() => handleUpdateStatus(order.id, 'confirmed')}
+                        >
+                          <MaterialIcons name="check" size={16} color="white" />
+                          <Text style={styles.orderActionButtonText}>Confirmar Pagamento</Text>
+                        </TouchableOpacity>
+                      )}
+                      {order.status === 'confirmed' && (
+                        <TouchableOpacity
+                          style={[styles.orderActionButton, { backgroundColor: '#8B5CF6' }]}
+                          onPress={() => handleUpdateStatus(order.id, 'processing')}
+                        >
+                          <MaterialIcons name="inventory" size={16} color="white" />
+                          <Text style={styles.orderActionButtonText}>Iniciar Separação</Text>
+                        </TouchableOpacity>
+                      )}
+                      {order.status === 'processing' && (
+                        <TouchableOpacity
+                          style={[styles.orderActionButton, { backgroundColor: '#10B981' }]}
+                          onPress={() => handleUpdateStatus(order.id, 'shipped')}
+                        >
+                          <MaterialIcons name="local-shipping" size={16} color="white" />
+                          <Text style={styles.orderActionButtonText}>Marcar como Enviado</Text>
+                        </TouchableOpacity>
+                      )}
+                      {order.status === 'shipped' && (
+                        <TouchableOpacity
+                          style={[styles.orderActionButton, { backgroundColor: '#059669' }]}
+                          onPress={() => handleUpdateStatus(order.id, 'delivered')}
+                        >
+                          <MaterialIcons name="done-all" size={16} color="white" />
+                          <Text style={styles.orderActionButtonText}>Marcar como Entregue</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Tela de Relatórios (MOCKADA)
+  const ReportsScreen = () => {
+    // Dados mockados
+    const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'year'>('month');
+
+    const stats = {
+      today: {
+        revenue: 1250.50,
+        orders: 8,
+        averageTicket: 156.31,
+        growth: 12.5,
+      },
+      week: {
+        revenue: 8450.30,
+        orders: 52,
+        averageTicket: 162.51,
+        growth: 8.3,
+      },
+      month: {
+        revenue: 34200.80,
+        orders: 198,
+        averageTicket: 172.73,
+        growth: 15.2,
+      },
+      year: {
+        revenue: 285600.00,
+        orders: 1650,
+        averageTicket: 173.27,
+        growth: 22.1,
+      },
+    };
+
+    const currentStats = stats[selectedPeriod];
+
+    const topProducts = [
+      { name: 'Produto Exemplo 1', sales: 45, revenue: 4495.50 },
+      { name: 'Produto Exemplo 2', sales: 32, revenue: 6396.80 },
+      { name: 'Produto Premium', sales: 18, revenue: 3598.20 },
+    ];
+
+    const handleGoBack = useCallback(() => {
+      setProfileSubScreen(null);
+    }, []);
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity 
+              onPress={handleGoBack}
+              style={{ zIndex: 1000, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>Relatórios</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+          {/* Seletor de período */}
+          <View style={styles.reportsPeriodSelector}>
+            <TouchableOpacity
+              style={[styles.reportsPeriodButton, selectedPeriod === 'today' && styles.reportsPeriodButtonActive]}
+              onPress={() => setSelectedPeriod('today')}
+            >
+              <Text style={[styles.reportsPeriodText, selectedPeriod === 'today' && styles.reportsPeriodTextActive]}>
+                Hoje
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.reportsPeriodButton, selectedPeriod === 'week' && styles.reportsPeriodButtonActive]}
+              onPress={() => setSelectedPeriod('week')}
+            >
+              <Text style={[styles.reportsPeriodText, selectedPeriod === 'week' && styles.reportsPeriodTextActive]}>
+                Semana
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.reportsPeriodButton, selectedPeriod === 'month' && styles.reportsPeriodButtonActive]}
+              onPress={() => setSelectedPeriod('month')}
+            >
+              <Text style={[styles.reportsPeriodText, selectedPeriod === 'month' && styles.reportsPeriodTextActive]}>
+                Mês
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.reportsPeriodButton, selectedPeriod === 'year' && styles.reportsPeriodButtonActive]}
+              onPress={() => setSelectedPeriod('year')}
+            >
+              <Text style={[styles.reportsPeriodText, selectedPeriod === 'year' && styles.reportsPeriodTextActive]}>
+                Ano
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Cards de estatísticas principais */}
+          <View style={styles.reportsStatsGrid}>
+            <View style={styles.reportsStatCard}>
+              <View style={styles.reportsStatHeader}>
+                <MaterialIcons name="attach-money" size={24} color="#10B981" />
+                <View style={[styles.reportsGrowthBadge, { backgroundColor: '#10B98120' }]}>
+                  <MaterialIcons name="trending-up" size={12} color="#10B981" />
+                  <Text style={[styles.reportsGrowthText, { color: '#10B981' }]}>
+                    +{currentStats.growth}%
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.reportsStatValue}>
+                R$ {currentStats.revenue.toFixed(2).replace('.', ',')}
+              </Text>
+              <Text style={styles.reportsStatLabel}>Receita Total</Text>
+            </View>
+
+            <View style={styles.reportsStatCard}>
+              <View style={styles.reportsStatHeader}>
+                <MaterialIcons name="receipt" size={24} color="#5C8FFC" />
+              </View>
+              <Text style={styles.reportsStatValue}>{currentStats.orders}</Text>
+              <Text style={styles.reportsStatLabel}>Pedidos</Text>
+            </View>
+
+            <View style={styles.reportsStatCard}>
+              <View style={styles.reportsStatHeader}>
+                <MaterialIcons name="shopping-cart" size={24} color="#F59E0B" />
+              </View>
+              <Text style={styles.reportsStatValue}>
+                R$ {currentStats.averageTicket.toFixed(2).replace('.', ',')}
+              </Text>
+              <Text style={styles.reportsStatLabel}>Ticket Médio</Text>
+            </View>
+          </View>
+
+          {/* Gráfico de vendas (simulado) */}
+          <View style={styles.reportsChartCard}>
+            <View style={styles.reportsChartHeader}>
+              <Text style={styles.reportsChartTitle}>Vendas por Dia</Text>
+              <MaterialIcons name="bar-chart" size={20} color="#5C8FFC" />
+            </View>
+            <View style={styles.reportsChartPlaceholder}>
+              <MaterialIcons name="show-chart" size={48} color="#3A3A3A" />
+              <Text style={styles.reportsChartPlaceholderText}>
+                Gráfico de vendas (Mockado)
+              </Text>
+            </View>
+          </View>
+
+          {/* Top produtos */}
+          <View style={styles.reportsTopProductsCard}>
+            <View style={styles.reportsTopProductsHeader}>
+              <MaterialIcons name="star" size={24} color="#FBBF24" />
+              <Text style={styles.reportsTopProductsTitle}>Produtos Mais Vendidos</Text>
+            </View>
+            {topProducts.map((product, index) => (
+              <View key={index} style={styles.reportsTopProductItem}>
+                <View style={styles.reportsTopProductLeft}>
+                  <View style={styles.reportsTopProductRank}>
+                    <Text style={styles.reportsTopProductRankText}>#{index + 1}</Text>
+                  </View>
+                  <View style={styles.reportsTopProductInfo}>
+                    <Text style={styles.reportsTopProductName}>{product.name}</Text>
+                    <Text style={styles.reportsTopProductSales}>
+                      {product.sales} {product.sales === 1 ? 'venda' : 'vendas'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.reportsTopProductRevenue}>
+                  R$ {product.revenue.toFixed(2).replace('.', ',')}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Resumo de pagamentos */}
+          <View style={styles.reportsPaymentCard}>
+            <View style={styles.reportsPaymentHeader}>
+              <MaterialIcons name="account-balance-wallet" size={24} color="#8B5CF6" />
+              <Text style={styles.reportsPaymentTitle}>Métodos de Pagamento</Text>
+            </View>
+            <View style={styles.reportsPaymentItem}>
+              <View style={styles.reportsPaymentMethod}>
+                <MaterialIcons name="account-balance-wallet" size={20} color="#10B981" />
+                <Text style={styles.reportsPaymentMethodText}>PIX</Text>
+              </View>
+              <Text style={styles.reportsPaymentValue}>
+                R$ {(currentStats.revenue * 0.65).toFixed(2).replace('.', ',')}
+              </Text>
+              <Text style={styles.reportsPaymentPercent}>65%</Text>
+            </View>
+            <View style={styles.reportsPaymentItem}>
+              <View style={styles.reportsPaymentMethod}>
+                <MaterialIcons name="credit-card" size={20} color="#5C8FFC" />
+                <Text style={styles.reportsPaymentMethodText}>Cartão</Text>
+              </View>
+              <Text style={styles.reportsPaymentValue}>
+                R$ {(currentStats.revenue * 0.35).toFixed(2).replace('.', ',')}
+              </Text>
+              <Text style={styles.reportsPaymentPercent}>35%</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Tela de Adicionar/Editar Produto
+  const AddEditProductScreen = () => {
+    const isEditing = editingProduct !== null;
+    const [productName, setProductName] = useState('');
+    const [productDescription, setProductDescription] = useState('');
+    const [productPrice, setProductPrice] = useState('');
+    const [productOriginalPrice, setProductOriginalPrice] = useState('');
+    const [productCategory, setProductCategory] = useState('');
+    const [productStock, setProductStock] = useState('0');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Atualizar campos quando editingProduct mudar
+    useEffect(() => {
+      if (editingProduct) {
+        setProductName(editingProduct.name || '');
+        setProductDescription(editingProduct.description || '');
+        setProductPrice(editingProduct.price?.toString() || '');
+        setProductOriginalPrice(editingProduct.originalPrice?.toString() || '');
+        setProductCategory(editingProduct.category || '');
+        setProductStock(editingProduct.stock?.toString() || '0');
+      } else {
+        // Limpar campos quando não estiver editando
+        setProductName('');
+        setProductDescription('');
+        setProductPrice('');
+        setProductOriginalPrice('');
+        setProductCategory('');
+        setProductStock('0');
+      }
+    }, [editingProduct]);
+
+    const handleSaveProduct = async () => {
+      // Validações básicas
+      if (!productName.trim()) {
+        Alert.alert('Erro', 'O nome do produto é obrigatório');
+        return;
+      }
+
+      const price = parseFloat(productPrice.replace(',', '.'));
+      if (isNaN(price) || price <= 0) {
+        Alert.alert('Erro', 'Preço inválido');
+        return;
+      }
+
+      setIsSaving(true);
+      
+      // Simular delay de salvamento (mockado)
+      setTimeout(() => {
+        setIsSaving(false);
+        Alert.alert(
+          'Sucesso', 
+          isEditing ? 'Produto atualizado com sucesso! (Mockado)' : 'Produto criado com sucesso! (Mockado)',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setProfileSubScreen('products');
+                setEditingProduct(null);
+              }
+            }
+          ]
+        );
+      }, 500);
+    };
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.profileHeader}>
+          <View style={styles.profileHeaderTop}>
+            <TouchableOpacity onPress={() => {
+              setProfileSubScreen('products');
+              setEditingProduct(null);
+            }}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.profileTitle}>
+              {isEditing ? 'Editar Produto' : 'Adicionar Produto'}
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </View>
+
+        <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.menuCard}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Nome do Produto *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={productName}
+                onChangeText={setProductName}
+                placeholder="Digite o nome do produto"
+                placeholderTextColor="#6B7280"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Descrição</Text>
+              <TextInput
+                style={[styles.formInput, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={productDescription}
+                onChangeText={setProductDescription}
+                placeholder="Descreva o produto..."
+                placeholderTextColor="#6B7280"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Preço *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={productPrice}
+                onChangeText={(text) => {
+                  const numbers = text.replace(/[^\d,]/g, '');
+                  setProductPrice(numbers);
+                }}
+                placeholder="0,00"
+                placeholderTextColor="#6B7280"
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Preço Original (opcional)</Text>
+              <TextInput
+                style={styles.formInput}
+                value={productOriginalPrice}
+                onChangeText={(text) => {
+                  const numbers = text.replace(/[^\d,]/g, '');
+                  setProductOriginalPrice(numbers);
+                }}
+                placeholder="0,00"
+                placeholderTextColor="#6B7280"
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Categoria</Text>
+              <TextInput
+                style={styles.formInput}
+                value={productCategory}
+                onChangeText={setProductCategory}
+                placeholder="Ex: Eletrônicos, Roupas, Alimentos..."
+                placeholderTextColor="#6B7280"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Estoque</Text>
+              <TextInput
+                style={styles.formInput}
+                value={productStock}
+                onChangeText={(text) => {
+                  const numbers = text.replace(/[^\d]/g, '');
+                  setProductStock(numbers);
+                }}
+                placeholder="0"
+                placeholderTextColor="#6B7280"
+                keyboardType="number-pad"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, isSaving && styles.primaryButtonDisabled]}
+              onPress={handleSaveProduct}
+              disabled={isSaving}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isSaving ? 'Salvando...' : isEditing ? 'Atualizar Produto' : 'Adicionar Produto'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
   const ProfileScreen = () => {
     // Obter dados do usuário autenticado
     const user = authState.user;
@@ -3654,46 +4895,62 @@ export default function App() {
 
               {/* Main Menu Section for Lojista */}
               <View style={styles.menuCard}>
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setProfileSubScreen('manage-store')}
+                >
                   <View style={styles.menuItemLeft}>
                     <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
                       <MaterialIcons name="store" size={20} color="white" />
                     </View>
                     <View style={styles.menuItemInfo}>
                       <Text style={styles.menuItemTitle}>Gerenciar Loja</Text>
-                      <Text style={styles.menuItemSubtitle}>Editar informações da loja</Text>
+                      <Text style={styles.menuItemSubtitle}>
+                        {userStore ? 'Editar informações da loja' : 'Criar sua loja'}
+                      </Text>
                     </View>
                   </View>
                   <Text style={styles.arrowIcon}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setProfileSubScreen('products')}
+                >
                   <View style={styles.menuItemLeft}>
                     <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
                       <MaterialIcons name="inventory" size={20} color="white" />
                     </View>
                     <View style={styles.menuItemInfo}>
                       <Text style={styles.menuItemTitle}>Meus Produtos</Text>
-                      <Text style={styles.menuItemSubtitle}>42 produtos cadastrados</Text>
+                      <Text style={styles.menuItemSubtitle}>
+                        {userProducts.length} {userProducts.length === 1 ? 'produto cadastrado' : 'produtos cadastrados'}
+                      </Text>
                     </View>
                   </View>
                   <Text style={styles.arrowIcon}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setProfileSubScreen('orders')}
+                >
                   <View style={styles.menuItemLeft}>
                     <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
                       <MaterialIcons name="receipt" size={20} color="white" />
                     </View>
                     <View style={styles.menuItemInfo}>
                       <Text style={styles.menuItemTitle}>Pedidos</Text>
-                      <Text style={styles.menuItemSubtitle}>12 pedidos pendentes</Text>
+                      <Text style={styles.menuItemSubtitle}>Gerenciar pedidos recebidos</Text>
                     </View>
                   </View>
                   <Text style={styles.arrowIcon}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setProfileSubScreen('reports')}
+                >
                   <View style={styles.menuItemLeft}>
                     <View style={[styles.menuItemIcon, { backgroundColor: '#1E3A8A' }]}>
                       <MaterialIcons name="analytics" size={20} color="white" />
@@ -4105,6 +5362,21 @@ export default function App() {
   if (currentScreen === 'profile') {
     if (profileSubScreen === 'purchases') {
       return <MyPurchasesScreen />;
+    }
+    if (profileSubScreen === 'manage-store') {
+      return <ManageStoreScreen />;
+    }
+    if (profileSubScreen === 'products') {
+      return <ManageProductsScreen />;
+    }
+    if (profileSubScreen === 'add-product') {
+      return <AddEditProductScreen />;
+    }
+    if (profileSubScreen === 'orders') {
+      return <OrdersScreen />;
+    }
+    if (profileSubScreen === 'reports') {
+      return <ReportsScreen />;
     }
     return <ProfileScreen />;
   }
@@ -7139,5 +8411,681 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  // Form Styles
+  formGroup: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 8,
+  },
+  formInput: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: 'white',
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  primaryButton: {
+    backgroundColor: '#5C8FFC',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Loading and Empty States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginTop: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  // Products List Styles
+  productsHeader: {
+    marginBottom: 16,
+  },
+  productsStatsCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  productsStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  productsStatText: {
+    marginLeft: 8,
+  },
+  productsStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  productsStatLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  productsStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#2A2A2A',
+    marginHorizontal: 16,
+  },
+  productsList: {
+    paddingVertical: 4,
+  },
+  productCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  productCardLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  productHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  productCardName: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: 'white',
+    flex: 1,
+  },
+  productCategoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1E3A8A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  productCategoryText: {
+    fontSize: 11,
+    color: '#93C5FD',
+    fontWeight: '500',
+  },
+  productPriceRow: {
+    marginBottom: 8,
+  },
+  productCardPrice: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+    marginBottom: 4,
+  },
+  productDiscountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productCardOriginalPrice: {
+    fontSize: 14,
+    color: '#6B7280',
+    textDecorationLine: 'line-through',
+  },
+  productDiscountBadge: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  productDiscountText: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: '600',
+  },
+  productStockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  productCardStock: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  productRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  productRatingText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  productStatusBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#064E3B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  productStatusText: {
+    fontSize: 10,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  productCardRight: {
+    flexDirection: 'column',
+  },
+  productActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  productEditButton: {
+    backgroundColor: '#1E3A8A',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  productDeleteButton: {
+    backgroundColor: '#DC2626',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  manageProductCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    position: 'relative',
+  },
+  // Orders Screen Styles
+  ordersStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  ordersStatCard: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginRight: 12,
+  },
+  ordersStatValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+  },
+  ordersStatLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  ordersFiltersContainer: {
+    marginBottom: 16,
+  },
+  ordersFilters: {
+    flexDirection: 'row',
+  },
+  ordersFilterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginRight: 8,
+  },
+  ordersFilterButtonActive: {
+    backgroundColor: '#5C8FFC',
+    borderColor: '#5C8FFC',
+  },
+  ordersFilterText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  ordersFilterTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  ordersList: {
+    paddingBottom: 20,
+  },
+  orderCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  orderCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  orderCardHeaderLeft: {
+    flex: 1,
+  },
+  orderNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  orderDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  orderStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  orderStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  orderCustomerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  orderCustomerName: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginLeft: 6,
+  },
+  orderItemsContainer: {
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  orderItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  orderItemLeft: {
+    flex: 1,
+  },
+  orderItemName: {
+    fontSize: 14,
+    color: 'white',
+    marginBottom: 4,
+  },
+  orderItemSize: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  orderItemPrice: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  orderShippingAddress: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  orderShippingAddressText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    flex: 1,
+    marginLeft: 6,
+    lineHeight: 18,
+  },
+  orderTracking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+    flexWrap: 'wrap',
+  },
+  orderTrackingLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 6,
+    marginRight: 6,
+  },
+  orderTrackingCode: {
+    fontSize: 12,
+    color: '#5C8FFC',
+    fontWeight: '600',
+    fontFamily: 'monospace',
+  },
+  orderNotes: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#2A2A2A',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  orderNotesText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    flex: 1,
+    marginLeft: 6,
+  },
+  orderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  orderPaymentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  orderPaymentText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 6,
+  },
+  orderTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+  },
+  orderActions: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  orderActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  orderActionButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  // Reports Screen Styles
+  reportsPeriodSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  reportsPeriodButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  reportsPeriodButtonActive: {
+    backgroundColor: '#5C8FFC',
+  },
+  reportsPeriodText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  reportsPeriodTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  reportsStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  reportsStatCard: {
+    flex: 1,
+    minWidth: '48%',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginBottom: 12,
+    marginRight: 12,
+  },
+  reportsStatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reportsGrowthBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  reportsGrowthText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  reportsStatValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  reportsStatLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  reportsChartCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  reportsChartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportsChartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  reportsChartPlaceholder: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0F0F0F',
+    borderRadius: 12,
+  },
+  reportsChartPlaceholderText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 8,
+  },
+  reportsTopProductsCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  reportsTopProductsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportsTopProductsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 8,
+  },
+  reportsTopProductItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  reportsTopProductLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  reportsTopProductRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reportsTopProductRankText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#5C8FFC',
+  },
+  reportsTopProductInfo: {
+    flex: 1,
+  },
+  reportsTopProductName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    marginBottom: 4,
+  },
+  reportsTopProductSales: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  reportsTopProductRevenue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#10B981',
+  },
+  reportsPaymentCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  reportsPaymentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportsPaymentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 8,
+  },
+  reportsPaymentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  reportsPaymentMethod: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  reportsPaymentMethodText: {
+    fontSize: 14,
+    color: 'white',
+    marginLeft: 8,
+  },
+  reportsPaymentValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    marginRight: 12,
+  },
+  reportsPaymentPercent: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
 });
