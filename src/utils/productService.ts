@@ -71,9 +71,13 @@ export const getProductsByStore = async (
 ): Promise<FirestoreProductData[]> => {
   try {
     const productsRef = collection(db, 'products');
-    let q = query(productsRef, where('storeId', '==', storeId));
+    let q;
     
-    if (!includeInactive) {
+    if (includeInactive) {
+      // Carregar todos os produtos (ativos e inativos)
+      q = query(productsRef, where('storeId', '==', storeId));
+    } else {
+      // Carregar apenas produtos ativos
       q = query(productsRef, where('storeId', '==', storeId), where('isActive', '==', true));
     }
     
@@ -117,8 +121,12 @@ export const createProduct = async (
 ): Promise<string | null> => {
   try {
     const now = new Date().toISOString();
-    const newProductData = {
-      ...productData,
+    
+    // Remover campos undefined para evitar erro no Firestore
+    const cleanedData: any = {
+      storeId: productData.storeId,
+      name: productData.name,
+      price: productData.price,
       isActive: productData.isActive !== undefined ? productData.isActive : true,
       rating: productData.rating || 0,
       reviewsCount: productData.reviewsCount || 0,
@@ -127,7 +135,23 @@ export const createProduct = async (
       updatedAt: now,
     };
 
-    const docRef = await addDoc(collection(db, 'products'), newProductData);
+    // Adicionar apenas campos que não são undefined
+    if (productData.description !== undefined && productData.description !== '') {
+      cleanedData.description = productData.description;
+    }
+    if (productData.originalPrice !== undefined && productData.originalPrice !== null) {
+      cleanedData.originalPrice = productData.originalPrice;
+    }
+    if (productData.category !== undefined && productData.category !== '') {
+      cleanedData.category = productData.category;
+    }
+    if (productData.imageUrl !== undefined && productData.imageUrl !== '') {
+      cleanedData.imageUrl = productData.imageUrl;
+    }
+
+    console.log('Criando produto no Firestore com dados:', cleanedData);
+    const docRef = await addDoc(collection(db, 'products'), cleanedData);
+    console.log('Produto criado no Firestore com ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Erro ao criar produto:', error);
@@ -147,10 +171,43 @@ export const updateProduct = async (
 ): Promise<boolean> => {
   try {
     const productDocRef = doc(db, 'products', productId);
-    const updateData = {
-      ...productData,
+    
+    // Remover campos undefined para evitar erro no Firestore
+    const updateData: any = {
       updatedAt: new Date().toISOString(),
     };
+
+    // Adicionar apenas campos que não são undefined
+    if (productData.name !== undefined) {
+      updateData.name = productData.name;
+    }
+    if (productData.description !== undefined) {
+      updateData.description = productData.description;
+    }
+    if (productData.price !== undefined) {
+      updateData.price = productData.price;
+    }
+    if (productData.originalPrice !== undefined && productData.originalPrice !== null) {
+      updateData.originalPrice = productData.originalPrice;
+    }
+    if (productData.category !== undefined) {
+      updateData.category = productData.category;
+    }
+    if (productData.stock !== undefined) {
+      updateData.stock = productData.stock;
+    }
+    if (productData.isActive !== undefined) {
+      updateData.isActive = productData.isActive;
+    }
+    if (productData.imageUrl !== undefined) {
+      updateData.imageUrl = productData.imageUrl;
+    }
+    if (productData.rating !== undefined) {
+      updateData.rating = productData.rating;
+    }
+    if (productData.reviewsCount !== undefined) {
+      updateData.reviewsCount = productData.reviewsCount;
+    }
 
     await updateDoc(productDocRef, updateData);
     return true;

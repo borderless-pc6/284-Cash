@@ -1,96 +1,52 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { FirestoreStoreData } from '../../utils/storeService';
+import { getOrdersByStore, updateOrderStatus, FirestoreOrderData } from '../../utils/orderService';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+interface OrdersScreenProps {
+  setProfileSubScreen: (screen: string | null) => void;
+  userStore: FirestoreStoreData | null;
+}
 
-  const OrdersScreen = () => {
-  // Dados mockados de pedidos de produtos físicos
-  const [orders] = useState([
-    {
-      id: '1',
-      orderNumber: '#ORD-2024-001',
-      customerName: 'João Silva',
-      customerEmail: 'joao@email.com',
-      shippingAddress: 'Rua das Flores, 123 - São Paulo, SP',
-      items: [
-        { name: 'Camiseta Básica Preta', quantity: 2, price: 99.90, size: 'M' },
-        { name: 'Tênis Esportivo', quantity: 1, price: 299.90, size: '42' },
-      ],
-      total: 499.70,
-      status: 'pending', // pending, confirmed, processing, shipped, delivered, cancelled
-      paymentMethod: 'PIX',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 horas atrás
-      notes: 'Entregar na portaria',
-    },
-    {
-      id: '2',
-      orderNumber: '#ORD-2024-002',
-      customerName: 'Maria Santos',
-      customerEmail: 'maria@email.com',
-      shippingAddress: 'Av. Paulista, 1000 - São Paulo, SP',
-      items: [
-        { name: 'Vestido Floral', quantity: 1, price: 199.90, size: 'P' },
-      ],
-      total: 199.90,
-      status: 'confirmed',
-      paymentMethod: 'Cartão',
-      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 horas atrás
-      notes: '',
-    },
-    {
-      id: '3',
-      orderNumber: '#ORD-2024-003',
-      customerName: 'Pedro Oliveira',
-      customerEmail: 'pedro@email.com',
-      shippingAddress: 'Rua Augusta, 500 - São Paulo, SP',
-      items: [
-        { name: 'Calça Jeans', quantity: 2, price: 249.90, size: 'G' },
-      ],
-      total: 499.80,
-      status: 'processing',
-      paymentMethod: 'PIX',
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 dia atrás
-      notes: 'Cliente preferiu retirar na loja',
-    },
-    {
-      id: '4',
-      orderNumber: '#ORD-2024-004',
-      customerName: 'Ana Costa',
-      customerEmail: 'ana@email.com',
-      shippingAddress: 'Rua Consolação, 200 - São Paulo, SP',
-      items: [
-        { name: 'Blusa de Moletom', quantity: 1, price: 149.90, size: 'M' },
-        { name: 'Shorts Esportivo', quantity: 1, price: 89.90, size: 'M' },
-      ],
-      total: 239.80,
-      status: 'shipped',
-      paymentMethod: 'Cartão',
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 dias atrás
-      trackingCode: 'BR123456789BR',
-      notes: '',
-    },
-    {
-      id: '5',
-      orderNumber: '#ORD-2024-005',
-      customerName: 'Carlos Mendes',
-      customerEmail: 'carlos@email.com',
-      shippingAddress: 'Av. Faria Lima, 1500 - São Paulo, SP',
-      items: [
-        { name: 'Tênis Casual', quantity: 1, price: 399.90, size: '43' },
-      ],
-      total: 399.90,
-      status: 'delivered',
-      paymentMethod: 'PIX',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 dias atrás
-      notes: '',
-    },
-  ]);
-
+const OrdersScreen: React.FC<OrdersScreenProps> = ({
+  setProfileSubScreen,
+  userStore,
+}) => {
+  const [orders, setOrders] = useState<FirestoreOrderData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+
+  // Carregar pedidos do Firebase
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!userStore?.id) {
+        setOrders([]);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const storeOrders = await getOrdersByStore(userStore.id);
+        // Ordenar por data de criação (mais recentes primeiro)
+        storeOrders.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setOrders(storeOrders);
+      } catch (error) {
+        console.error('Erro ao carregar pedidos:', error);
+        Alert.alert('Erro', 'Não foi possível carregar os pedidos.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, [userStore?.id]);
   const filteredOrders = filterStatus 
     ? orders.filter(order => order.status === filterStatus)
     : orders;
@@ -131,7 +87,12 @@ import { MaterialIcons } from '@expo/vector-icons';
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string | Date | undefined) => {
+    if (!dateString) return 'Data não disponível';
+    
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    if (isNaN(date.getTime())) return 'Data inválida';
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -146,11 +107,29 @@ import { MaterialIcons } from '@expo/vector-icons';
     }
   };
 
+  // Gerar número do pedido a partir do ID
+  const getOrderNumber = (orderId: string | undefined, createdAt: string | Date | undefined): string => {
+    if (!orderId) return '#ORD-N/A';
+    
+    // Usar os últimos 6 caracteres do ID para criar um número único
+    const shortId = orderId.slice(-6).toUpperCase();
+    const year = createdAt 
+      ? (typeof createdAt === 'string' ? new Date(createdAt) : createdAt).getFullYear()
+      : new Date().getFullYear();
+    
+    return `#ORD-${year}-${shortId}`;
+  };
+
   const handleGoBack = useCallback(() => {
     setProfileSubScreen(null);
-  }, []);
+  }, [setProfileSubScreen]);
 
-  const handleUpdateStatus = (orderId: string, newStatus: string) => {
+  const handleUpdateStatus = async (orderId: string | undefined, newStatus: FirestoreOrderData['status']) => {
+    if (!orderId) {
+      Alert.alert('Erro', 'ID do pedido não encontrado.');
+      return;
+    }
+
     Alert.alert(
       'Atualizar Status',
       `Deseja atualizar o status do pedido para "${getStatusLabel(newStatus)}"?`,
@@ -158,8 +137,24 @@ import { MaterialIcons } from '@expo/vector-icons';
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
-            Alert.alert('Sucesso', 'Status atualizado! (Mockado)');
+          onPress: async () => {
+            try {
+              const success = await updateOrderStatus(orderId, newStatus);
+              if (success) {
+                // Atualizar o estado local
+                setOrders(prevOrders =>
+                  prevOrders.map(order =>
+                    order.id === orderId ? { ...order, status: newStatus } : order
+                  )
+                );
+                Alert.alert('Sucesso', 'Status atualizado com sucesso!');
+              } else {
+                Alert.alert('Erro', 'Não foi possível atualizar o status do pedido.');
+              }
+            } catch (error) {
+              console.error('Erro ao atualizar status:', error);
+              Alert.alert('Erro', 'Ocorreu um erro ao atualizar o status.');
+            }
           },
         },
       ]
@@ -259,7 +254,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 
         {/* Lista de pedidos */}
         <View style={styles.ordersList}>
-          {filteredOrders.length === 0 ? (
+          {isLoading ? (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="hourglass-empty" size={64} color="#6B7280" />
+              <Text style={styles.emptyText}>Carregando pedidos...</Text>
+            </View>
+          ) : filteredOrders.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialIcons name="receipt" size={64} color="#6B7280" />
               <Text style={styles.emptyText}>Nenhum pedido encontrado</Text>
@@ -269,7 +269,7 @@ import { MaterialIcons } from '@expo/vector-icons';
               <View key={order.id} style={styles.orderCard}>
                 <View style={styles.orderCardHeader}>
                   <View style={styles.orderCardHeaderLeft}>
-                    <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                    <Text style={styles.orderNumber}>{getOrderNumber(order.id, order.createdAt)}</Text>
                     <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
                   </View>
                   <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
@@ -284,27 +284,35 @@ import { MaterialIcons } from '@expo/vector-icons';
                   </View>
                 </View>
 
-                <View style={styles.orderCustomerInfo}>
-                  <MaterialIcons name="person" size={16} color="#9CA3AF" />
-                  <Text style={styles.orderCustomerName}>{order.customerName}</Text>
-                </View>
+                {(order.customerName || order.customerEmail) && (
+                  <View style={styles.orderCustomerInfo}>
+                    <MaterialIcons name="person" size={16} color="#9CA3AF" />
+                    <Text style={styles.orderCustomerName}>
+                      {order.customerName || order.customerEmail || 'Cliente não identificado'}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.orderItemsContainer}>
-                  {order.items.map((item, index) => (
-                    <View key={index} style={styles.orderItem}>
-                      <View style={styles.orderItemLeft}>
-                        <Text style={styles.orderItemName}>
-                          {item.quantity}x {item.name}
+                  {order.items && order.items.length > 0 ? (
+                    order.items.map((item, index) => (
+                      <View key={index} style={styles.orderItem}>
+                        <View style={styles.orderItemLeft}>
+                          <Text style={styles.orderItemName}>
+                            {item.quantity}x {item.name || 'Produto sem nome'}
+                          </Text>
+                          {item.size && (
+                            <Text style={styles.orderItemSize}>Tamanho: {item.size}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.orderItemPrice}>
+                          R$ {(item.quantity * (item.price || 0)).toFixed(2).replace('.', ',')}
                         </Text>
-                        {item.size && (
-                          <Text style={styles.orderItemSize}>Tamanho: {item.size}</Text>
-                        )}
                       </View>
-                      <Text style={styles.orderItemPrice}>
-                        R$ {(item.quantity * item.price).toFixed(2).replace('.', ',')}
-                      </Text>
-                    </View>
-                  ))}
+                    ))
+                  ) : (
+                    <Text style={styles.orderItemName}>Nenhum item encontrado</Text>
+                  )}
                 </View>
 
                 {order.shippingAddress && (
@@ -330,16 +338,18 @@ import { MaterialIcons } from '@expo/vector-icons';
                 )}
 
                 <View style={styles.orderFooter}>
-                  <View style={styles.orderPaymentInfo}>
-                    <MaterialIcons 
-                      name={order.paymentMethod === 'PIX' ? 'account-balance-wallet' : 'credit-card'} 
-                      size={16} 
-                      color="#9CA3AF" 
-                    />
-                    <Text style={styles.orderPaymentText}>{order.paymentMethod}</Text>
-                  </View>
+                  {order.paymentMethod && (
+                    <View style={styles.orderPaymentInfo}>
+                      <MaterialIcons 
+                        name={order.paymentMethod === 'PIX' ? 'account-balance-wallet' : 'credit-card'} 
+                        size={16} 
+                        color="#9CA3AF" 
+                      />
+                      <Text style={styles.orderPaymentText}>{order.paymentMethod}</Text>
+                    </View>
+                  )}
                   <Text style={styles.orderTotal}>
-                    Total: R$ {order.total.toFixed(2).replace('.', ',')}
+                    Total: R$ {(order.total || 0).toFixed(2).replace('.', ',')}
                   </Text>
                 </View>
 

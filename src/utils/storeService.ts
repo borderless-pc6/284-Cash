@@ -64,8 +64,16 @@ export const getStoresByOwner = async (
   ownerId: string
 ): Promise<FirestoreStoreData[]> => {
   try {
+    if (!ownerId || ownerId.trim() === '') {
+      console.error('Erro: ownerId é obrigatório para buscar lojas');
+      return [];
+    }
+
     const storesRef = collection(db, 'stores');
-    const q = query(storesRef, where('ownerId', '==', ownerId));
+    const normalizedOwnerId = String(ownerId).trim();
+    console.log('Buscando lojas para ownerId:', normalizedOwnerId);
+    
+    const q = query(storesRef, where('ownerId', '==', normalizedOwnerId));
     const querySnapshot = await getDocs(q);
 
     const stores: FirestoreStoreData[] = [];
@@ -87,6 +95,7 @@ export const getStoresByOwner = async (
       });
     });
 
+    console.log(`Encontradas ${stores.length} loja(s) para ownerId: ${normalizedOwnerId}`);
     return stores;
   } catch (error) {
     console.error('Erro ao buscar lojas do proprietário:', error);
@@ -139,18 +148,50 @@ export const createStore = async (
   storeData: Omit<FirestoreStoreData, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string | null> => {
   try {
+    // Validar ownerId
+    if (!storeData.ownerId || storeData.ownerId.trim() === '') {
+      console.error('Erro: ownerId é obrigatório e não pode estar vazio');
+      return null;
+    }
+
     const now = new Date().toISOString();
-    const newStoreData = {
-      ...storeData,
+    
+    // Remover campos undefined para evitar erro no Firestore
+    const cleanedData: any = {
+      name: storeData.name,
+      ownerId: String(storeData.ownerId).trim(), // Garantir que seja string e remover espaços
       isActive: storeData.isActive !== undefined ? storeData.isActive : true,
       createdAt: now,
       updatedAt: now,
     };
 
-    const docRef = await addDoc(collection(db, 'stores'), newStoreData);
+    console.log('Criando loja no Firestore com dados:', cleanedData);
+
+    // Adicionar apenas campos que não são undefined
+    if (storeData.category !== undefined && storeData.category !== '') {
+      cleanedData.category = storeData.category;
+    }
+    if (storeData.address !== undefined && storeData.address !== '') {
+      cleanedData.address = storeData.address;
+    }
+    if (storeData.phone !== undefined && storeData.phone !== '') {
+      cleanedData.phone = storeData.phone;
+    }
+    if (storeData.email !== undefined && storeData.email !== '') {
+      cleanedData.email = storeData.email;
+    }
+    if (storeData.description !== undefined && storeData.description !== '') {
+      cleanedData.description = storeData.description;
+    }
+    if (storeData.imageUrl !== undefined && storeData.imageUrl !== '') {
+      cleanedData.imageUrl = storeData.imageUrl;
+    }
+
+    const docRef = await addDoc(collection(db, 'stores'), cleanedData);
+    console.log('Loja criada no Firestore com ID:', docRef.id, 'ownerId:', cleanedData.ownerId);
     return docRef.id;
   } catch (error) {
-    console.error('Erro ao criar loja:', error);
+    console.error('Erro ao criar loja no Firestore:', error);
     return null;
   }
 };
@@ -167,10 +208,37 @@ export const updateStore = async (
 ): Promise<boolean> => {
   try {
     const storeDocRef = doc(db, 'stores', storeId);
-    const updateData = {
-      ...storeData,
+    
+    // Remover campos undefined para evitar erro no Firestore
+    const updateData: any = {
       updatedAt: new Date().toISOString(),
     };
+
+    // Adicionar apenas campos que não são undefined
+    if (storeData.name !== undefined) {
+      updateData.name = storeData.name;
+    }
+    if (storeData.category !== undefined) {
+      updateData.category = storeData.category;
+    }
+    if (storeData.address !== undefined) {
+      updateData.address = storeData.address;
+    }
+    if (storeData.phone !== undefined) {
+      updateData.phone = storeData.phone;
+    }
+    if (storeData.email !== undefined) {
+      updateData.email = storeData.email;
+    }
+    if (storeData.description !== undefined) {
+      updateData.description = storeData.description;
+    }
+    if (storeData.imageUrl !== undefined) {
+      updateData.imageUrl = storeData.imageUrl;
+    }
+    if (storeData.isActive !== undefined) {
+      updateData.isActive = storeData.isActive;
+    }
 
     await updateDoc(storeDocRef, updateData);
     return true;

@@ -25,6 +25,16 @@ service cloud.firestore {
       // Em produção, verificar se o usuário é dono da loja do produto
       allow write: if true;
     }
+    
+    // Regras para a coleção de pedidos
+    match /orders/{orderId} {
+      // Permitir leitura para todos (apenas para desenvolvimento)
+      // Em produção, verificar se o usuário é dono da loja ou o cliente do pedido
+      allow read: if true;
+      // Permitir escrita para todos (apenas para desenvolvimento)
+      // Em produção, verificar se o usuário é o cliente ou dono da loja
+      allow write: if true;
+    }
   }
 }
 

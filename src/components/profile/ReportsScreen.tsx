@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+interface ReportsScreenProps {
+  setProfileSubScreen: (screen: string | null) => void;
+}
 
-  const ReportsScreen = () => {
+const ReportsScreen: React.FC<ReportsScreenProps> = ({
+  setProfileSubScreen,
+}) => {
   // Dados mockados
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'year'>('month');
 
@@ -48,7 +51,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 
   const handleGoBack = useCallback(() => {
     setProfileSubScreen(null);
-  }, []);
+  }, [setProfileSubScreen]);
 
   return (
     <View style={styles.container}>

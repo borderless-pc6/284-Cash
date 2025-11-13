@@ -364,6 +364,16 @@ export default function App() {
     checkSession();
   }, []);
 
+  // Carregar loja do usuário quando ele fizer login ou quando o ID do usuário mudar
+  useEffect(() => {
+    if (authState.isLoggedIn && authState.user?.id) {
+      console.log('Usuário autenticado, carregando loja...');
+      loadUserStore();
+    } else {
+      setUserStore(null);
+    }
+  }, [authState.isLoggedIn, authState.user?.id, loadUserStore]);
+
   const handleBackToRegister = useCallback(() => {
     setAuthState({ ...authState, authScreen: 'register' });
   }, [authState]);
@@ -371,6 +381,56 @@ export default function App() {
   const handleBackToLogin = useCallback(() => {
     setAuthState({ ...authState, authScreen: 'login' });
   }, [authState]);
+
+  // Função para carregar a loja do usuário
+  const loadUserStore = useCallback(async () => {
+    if (!authState.user?.id) {
+      console.log('loadUserStore: Usuário não autenticado ou sem ID');
+      setUserStore(null);
+      return;
+    }
+
+    try {
+      setIsLoadingStore(true);
+      console.log('Carregando lojas para usuário ID:', authState.user.id);
+      const stores = await getStoresByOwner(authState.user.id);
+      console.log('Lojas encontradas:', stores.length, stores);
+      
+      if (stores && stores.length > 0) {
+        setUserStore(stores[0]);
+        console.log('Loja carregada:', stores[0].id, stores[0].name);
+      } else {
+        console.log('Nenhuma loja encontrada para o usuário');
+        setUserStore(null);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar loja do usuário:', error);
+      setUserStore(null);
+    } finally {
+      setIsLoadingStore(false);
+    }
+  }, [authState.user?.id]);
+
+  // Função para carregar os produtos do usuário (incluindo inativos)
+  const loadUserProducts = useCallback(async () => {
+    if (!userStore?.id) {
+      setUserProducts([]);
+      return;
+    }
+
+    try {
+      setIsLoadingProducts(true);
+      // Carregar todos os produtos, incluindo inativos (para gerenciamento)
+      const products = await getProductsByStore(userStore.id, true);
+      setUserProducts(products || []);
+      console.log('Produtos carregados do Firestore:', products.length);
+    } catch (error) {
+      console.error('Erro ao carregar produtos do usuário:', error);
+      setUserProducts([]);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, [userStore?.id]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -1039,21 +1099,63 @@ export default function App() {
       return <MyPurchasesScreen />;
     }
     if (profileSubScreen === 'manage-store') {
-      return <ManageStoreScreen />;
+      return (
+        <ManageStoreScreen
+          authState={authState}
+          userStore={userStore}
+          setProfileSubScreen={setProfileSubScreen}
+          loadUserStore={loadUserStore}
+        />
+      );
     }
     if (profileSubScreen === 'products') {
-      return <ManageProductsScreen />;
+      return (
+        <ManageProductsScreen
+          userStore={userStore}
+          userProducts={userProducts}
+          setProfileSubScreen={setProfileSubScreen}
+          setEditingProduct={setEditingProduct}
+          loadUserProducts={loadUserProducts}
+        />
+      );
     }
     if (profileSubScreen === 'add-product') {
-      return <AddEditProductScreen />;
+      return (
+        <AddEditProductScreen
+          editingProduct={editingProduct}
+          userStore={userStore}
+          setProfileSubScreen={setProfileSubScreen}
+          setEditingProduct={setEditingProduct}
+          loadUserProducts={loadUserProducts}
+        />
+      );
     }
     if (profileSubScreen === 'orders') {
-      return <OrdersScreen />;
+      return (
+        <OrdersScreen
+          setProfileSubScreen={setProfileSubScreen}
+          userStore={userStore}
+        />
+      );
     }
     if (profileSubScreen === 'reports') {
-      return <ReportsScreen />;
+      return (
+        <ReportsScreen
+          setProfileSubScreen={setProfileSubScreen}
+        />
+      );
     }
-    return <ProfileScreen />;
+    return (
+      <ProfileScreen
+        authState={authState}
+        setCurrentScreen={setCurrentScreen}
+        setProfileSubScreen={setProfileSubScreen}
+        userStore={userStore}
+        userProducts={userProducts}
+        handleLogout={handleLogout}
+        bottomNavItems={bottomNavItems}
+      />
+    );
   }
 
   if (currentScreen === 'store-detail') {

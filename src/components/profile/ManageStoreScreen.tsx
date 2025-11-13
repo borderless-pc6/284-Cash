@@ -1,13 +1,24 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { AuthState } from '../../types';
+import { FirestoreStoreData, createStore, updateStore } from '../../utils/storeService';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+interface ManageStoreScreenProps {
+  authState: AuthState;
+  userStore: FirestoreStoreData | null;
+  setProfileSubScreen: (screen: string | null) => void;
+  loadUserStore: () => Promise<void>;
+}
 
-  const ManageStoreScreen = () => {
+const ManageStoreScreen: React.FC<ManageStoreScreenProps> = ({
+  authState,
+  userStore,
+  setProfileSubScreen,
+  loadUserStore,
+}) => {
   const user = authState.user;
   const [storeName, setStoreName] = useState('');
   const [storeCategory, setStoreCategory] = useState('');
@@ -31,7 +42,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 
   const handleSaveStore = async () => {
     if (!user || !user.id) {
-      Alert.alert('Erro', 'Usuário não encontrado');
+      console.error('Erro: Usuário não encontrado ou sem ID', { user, userId: user?.id });
+      Alert.alert('Erro', 'Usuário não encontrado. Por favor, faça login novamente.');
       return;
     }
 
@@ -40,48 +52,92 @@ import { MaterialIcons } from '@expo/vector-icons';
       return;
     }
 
+    console.log('Salvando loja com ownerId:', user.id, 'Nome:', storeName.trim());
+
     setIsSaving(true);
     try {
       if (userStore?.id) {
-        // Atualizar loja existente
-        const success = await updateStore(userStore.id, {
-          name: storeName,
-          category: storeCategory,
-          address: storeAddress,
-          phone: storePhone,
-          email: storeEmail,
-          description: storeDescription,
-        });
+        // Atualizar loja existente no Firestore
+        const updateData: any = {
+          name: storeName.trim(),
+        };
+
+        // Adicionar apenas campos preenchidos (não vazios)
+        if (storeCategory.trim()) {
+          updateData.category = storeCategory.trim();
+        }
+        if (storeAddress.trim()) {
+          updateData.address = storeAddress.trim();
+        }
+        if (storePhone.trim()) {
+          updateData.phone = storePhone.trim();
+        }
+        if (storeEmail.trim()) {
+          updateData.email = storeEmail.trim();
+        }
+        if (storeDescription.trim()) {
+          updateData.description = storeDescription.trim();
+        }
+
+        const success = await updateStore(userStore.id, updateData);
+        
         if (success) {
+          console.log('Loja atualizada com sucesso no Firestore:', userStore.id);
           Alert.alert('Sucesso', 'Loja atualizada com sucesso!');
+          // Recarregar dados da loja do Firestore
           await loadUserStore();
           setProfileSubScreen(null);
         } else {
-          Alert.alert('Erro', 'Erro ao atualizar loja');
+          console.error('Falha ao atualizar loja no Firestore');
+          Alert.alert('Erro', 'Erro ao atualizar loja. Verifique sua conexão e tente novamente.');
         }
       } else {
-        // Criar nova loja
-        const storeId = await createStore({
-          name: storeName,
-          ownerId: user.id,
-          category: storeCategory,
-          address: storeAddress,
-          phone: storePhone,
-          email: storeEmail,
-          description: storeDescription,
+        // Criar nova loja no Firestore
+        const storeData: any = {
+          name: storeName.trim(),
+          ownerId: String(user.id), // Garantir que seja string
           isActive: true,
-        });
+        };
+
+        console.log('Dados da loja a serem salvos:', storeData);
+
+        // Adicionar apenas campos preenchidos (não vazios)
+        if (storeCategory.trim()) {
+          storeData.category = storeCategory.trim();
+        }
+        if (storeAddress.trim()) {
+          storeData.address = storeAddress.trim();
+        }
+        if (storePhone.trim()) {
+          storeData.phone = storePhone.trim();
+        }
+        if (storeEmail.trim()) {
+          storeData.email = storeEmail.trim();
+        }
+        if (storeDescription.trim()) {
+          storeData.description = storeDescription.trim();
+        }
+
+        const storeId = await createStore(storeData);
+        
         if (storeId) {
+          console.log('Loja criada com sucesso no Firestore:', storeId, 'com ownerId:', user.id);
           Alert.alert('Sucesso', 'Loja criada com sucesso!');
+          // Recarregar dados da loja do Firestore
           await loadUserStore();
           setProfileSubScreen(null);
         } else {
-          Alert.alert('Erro', 'Erro ao criar loja');
+          console.error('Falha ao criar loja no Firestore');
+          Alert.alert('Erro', 'Erro ao criar loja. Verifique sua conexão e tente novamente.');
         }
       }
-    } catch (error) {
-      console.error('Erro ao salvar loja:', error);
-      Alert.alert('Erro', 'Erro ao salvar loja');
+    } catch (error: any) {
+      console.error('Erro ao salvar loja no Firestore:', error);
+      const errorMessage = error?.message || 'Erro desconhecido ao salvar loja';
+      Alert.alert(
+        'Erro', 
+        `Não foi possível salvar a loja: ${errorMessage}\n\nVerifique:\n- Sua conexão com a internet\n- As configurações do Firebase\n- As regras de segurança do Firestore`
+      );
     } finally {
       setIsSaving(false);
     }

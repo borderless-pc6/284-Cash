@@ -1,18 +1,102 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { AuthState } from '../../types';
+import { FirestoreStoreData } from '../../utils/storeService';
+import { FirestoreProductData } from '../../utils/productService';
+import { getOrdersByStore, calculateOrderStats } from '../../utils/orderService';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+interface ProfileScreenProps {
+  authState: AuthState;
+  setCurrentScreen: (screen: string) => void;
+  setProfileSubScreen: (screen: string | null) => void;
+  userStore: FirestoreStoreData | null;
+  userProducts: FirestoreProductData[];
+  handleLogout: () => void;
+  bottomNavItems: Array<{
+    name: string;
+    icon: string;
+    iconType: string;
+    active: boolean;
+    screen: string;
+  }>;
+}
 
-  const ProfileScreen = () => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  authState,
+  setCurrentScreen,
+  setProfileSubScreen,
+  userStore,
+  userProducts,
+  handleLogout,
+  bottomNavItems,
+}) => {
   // Obter dados do usuário autenticado
   const user = authState.user;
   const userName = user?.name || user?.email?.split('@')[0] || 'Usuário';
   const userEmail = user?.email || '';
   const isLojista = user?.role === 'lojista' || user?.permissionLevel === 'lojista';
+
+  // Estados para estatísticas
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    totalSales: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    uniqueCustomers: 0,
+  });
+
+  // Calcular média de avaliações dos produtos
+  const productsWithRating = userProducts.filter(p => p.rating && typeof p.rating === 'number');
+  const averageRating = productsWithRating.length > 0
+    ? productsWithRating.reduce((sum, p) => sum + (p.rating || 0), 0) / productsWithRating.length
+    : 0;
+
+  // Função para formatar valores monetários
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  // Carregar pedidos e calcular estatísticas
+  useEffect(() => {
+    const loadOrdersAndStats = async () => {
+      if (!isLojista || !userStore?.id) {
+        setStats({
+          totalRevenue: 0,
+          monthlyRevenue: 0,
+          totalSales: 0,
+          totalOrders: 0,
+          pendingOrders: 0,
+          uniqueCustomers: 0,
+        });
+        return;
+      }
+
+      try {
+        setIsLoadingStats(true);
+        const storeOrders = await getOrdersByStore(userStore.id);
+        setOrders(storeOrders);
+        const calculatedStats = calculateOrderStats(storeOrders);
+        setStats(calculatedStats);
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    loadOrdersAndStats();
+  }, [isLojista, userStore?.id]);
 
   return (
     <View style={styles.container}>
@@ -35,24 +119,30 @@ import { MaterialIcons } from '@expo/vector-icons';
           <View style={styles.profileAvatar}>
             <MaterialIcons name={isLojista ? "store" : "person"} size={48} color="#9CA3AF" />
           </View>
-          <Text style={styles.profileName}>{userName}</Text>
-          <Text style={styles.profileEmail}>{userEmail}</Text>
+          <Text style={styles.profileName}>
+            {isLojista && userStore?.name ? userStore.name : userName}
+          </Text>
+          <Text style={styles.profileEmail}>
+            {isLojista && userStore?.email ? userStore.email : userEmail}
+          </Text>
 
           <View style={styles.profileStats}>
             {isLojista ? (
               <>
                 <View style={styles.profileStatItem}>
-                  <Text style={styles.profileStatValue}>R$ 12.450,00</Text>
+                  <Text style={styles.profileStatValue}>
+                    {formatCurrency(stats.totalRevenue)}
+                  </Text>
                   <Text style={styles.profileStatLabel}>Receita Total</Text>
                 </View>
                 <View style={styles.profileStatDivider} />
                 <View style={styles.profileStatItem}>
-                  <Text style={styles.profileStatValue}>156</Text>
+                  <Text style={styles.profileStatValue}>{stats.totalSales}</Text>
                   <Text style={styles.profileStatLabel}>Vendas</Text>
                 </View>
                 <View style={styles.profileStatDivider} />
                 <View style={styles.profileStatItem}>
-                  <Text style={styles.profileStatValue}>42</Text>
+                  <Text style={styles.profileStatValue}>{userProducts.length}</Text>
                   <Text style={styles.profileStatLabel}>Produtos</Text>
                 </View>
               </>
@@ -86,22 +176,26 @@ import { MaterialIcons } from '@expo/vector-icons';
               <View style={styles.merchantStatsGrid}>
                 <View style={styles.merchantStatCard}>
                   <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
-                  <Text style={styles.merchantStatValue}>R$ 2.340,00</Text>
+                  <Text style={styles.merchantStatValue}>
+                    {formatCurrency(stats.monthlyRevenue)}
+                  </Text>
                   <Text style={styles.merchantStatLabel}>Este Mês</Text>
                 </View>
                 <View style={styles.merchantStatCard}>
                   <MaterialIcons name="people" size={24} color="#5C8FFC" />
-                  <Text style={styles.merchantStatValue}>89</Text>
+                  <Text style={styles.merchantStatValue}>{stats.uniqueCustomers}</Text>
                   <Text style={styles.merchantStatLabel}>Clientes</Text>
                 </View>
                 <View style={styles.merchantStatCard}>
                   <MaterialIcons name="star" size={24} color="#FFD700" />
-                  <Text style={styles.merchantStatValue}>4.8</Text>
+                  <Text style={styles.merchantStatValue}>
+                    {isNaN(averageRating) || averageRating === 0 ? '0.0' : averageRating.toFixed(1)}
+                  </Text>
                   <Text style={styles.merchantStatLabel}>Avaliação</Text>
                 </View>
                 <View style={styles.merchantStatCard}>
                   <MaterialIcons name="shopping-cart" size={24} color="#DC2626" />
-                  <Text style={styles.merchantStatValue}>12</Text>
+                  <Text style={styles.merchantStatValue}>{stats.pendingOrders}</Text>
                   <Text style={styles.merchantStatLabel}>Pedidos</Text>
                 </View>
               </View>

@@ -1,61 +1,87 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { FirestoreStoreData } from '../../utils/storeService';
+import { FirestoreProductData, deleteProduct } from '../../utils/productService';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+// Função para obter ícone genérico baseado na categoria
+const getCategoryIcon = (category?: string): string => {
+  if (!category) return 'shopping-bag';
+  
+  const categoryLower = category.toLowerCase();
+  if (categoryLower.includes('eletrôn') || categoryLower.includes('tech')) return 'devices';
+  if (categoryLower.includes('roup') || categoryLower.includes('vestuário')) return 'checkroom';
+  if (categoryLower.includes('aliment') || categoryLower.includes('comida')) return 'restaurant';
+  if (categoryLower.includes('farmácia') || categoryLower.includes('medicina')) return 'local-pharmacy';
+  if (categoryLower.includes('beleza') || categoryLower.includes('cosmético')) return 'face';
+  if (categoryLower.includes('pet') || categoryLower.includes('animal')) return 'pets';
+  if (categoryLower.includes('academia') || categoryLower.includes('fitness')) return 'fitness-center';
+  if (categoryLower.includes('casa') || categoryLower.includes('decoração')) return 'home';
+  if (categoryLower.includes('livro') || categoryLower.includes('educação')) return 'menu-book';
+  if (categoryLower.includes('brinquedo') || categoryLower.includes('jogo')) return 'sports-esports';
+  
+  return 'shopping-bag';
+};
 
-  const ManageProductsScreen = () => {
-  // Dados mockados para desenvolvimento
-  const [mockProducts] = useState<FirestoreProductData[]>([
-    {
-      id: '1',
-      storeId: userStore?.id || 'mock-store',
-      name: 'Produto Exemplo 1',
-      description: 'Descrição do produto exemplo',
-      price: 99.90,
-      originalPrice: 149.90,
-      category: 'Eletrônicos',
-      stock: 10,
-      isActive: true,
-      rating: 4.5,
-      reviewsCount: 23,
-    },
-    {
-      id: '2',
-      storeId: userStore?.id || 'mock-store',
-      name: 'Produto Exemplo 2',
-      description: 'Outro produto de exemplo',
-      price: 199.90,
-      category: 'Roupas',
-      stock: 5,
-      isActive: true,
-      rating: 4.8,
-      reviewsCount: 15,
-    },
-  ]);
+interface ManageProductsScreenProps {
+  userStore: FirestoreStoreData | null;
+  userProducts: FirestoreProductData[];
+  setProfileSubScreen: (screen: string | null) => void;
+  setEditingProduct: (product: FirestoreProductData | null) => void;
+  loadUserProducts: () => Promise<void>;
+}
 
-  const [localProducts, setLocalProducts] = useState<FirestoreProductData[]>(mockProducts);
+const ManageProductsScreen: React.FC<ManageProductsScreenProps> = ({
+  userStore,
+  userProducts,
+  setProfileSubScreen,
+  setEditingProduct,
+  loadUserProducts,
+}) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Carregar produtos do Firebase quando a tela é aberta ou quando userStore mudar
+  useEffect(() => {
+    if (userStore?.id) {
+      loadUserProducts();
+    }
+  }, [userStore?.id, loadUserProducts]);
 
   // Função de voltar
   const handleGoBack = useCallback(() => {
     setProfileSubScreen(null);
-  }, []);
+  }, [setProfileSubScreen]);
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     Alert.alert(
       'Confirmar Exclusão',
-      'Tem certeza que deseja excluir este produto?',
+      'Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            setLocalProducts((prev) => prev.filter((p) => p.id !== productId));
-            Alert.alert('Sucesso', 'Produto excluído com sucesso!');
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              const success = await deleteProduct(productId);
+              
+              if (success) {
+                console.log('Produto excluído com sucesso do Firestore:', productId);
+                Alert.alert('Sucesso', 'Produto excluído com sucesso!');
+                // Recarregar produtos do Firebase
+                await loadUserProducts();
+              } else {
+                Alert.alert('Erro', 'Erro ao excluir produto. Tente novamente.');
+              }
+            } catch (error: any) {
+              console.error('Erro ao excluir produto:', error);
+              Alert.alert('Erro', `Erro ao excluir produto: ${error?.message || 'Erro desconhecido'}`);
+            } finally {
+              setIsDeleting(false);
+            }
           },
         },
       ]
@@ -96,7 +122,7 @@ import { MaterialIcons } from '@expo/vector-icons';
         style={styles.profileContent} 
         showsVerticalScrollIndicator={false}
       >
-        {localProducts.length === 0 ? (
+        {userProducts.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialIcons name="inventory" size={64} color="#6B7280" />
             <Text style={styles.emptyText}>Nenhum produto cadastrado</Text>
@@ -118,9 +144,9 @@ import { MaterialIcons } from '@expo/vector-icons';
                 <View style={styles.productsStatItem}>
                   <MaterialIcons name="inventory" size={20} color="#5C8FFC" />
                   <View style={styles.productsStatText}>
-                    <Text style={styles.productsStatValue}>{localProducts.length}</Text>
+                    <Text style={styles.productsStatValue}>{userProducts.length}</Text>
                     <Text style={styles.productsStatLabel}>
-                      {localProducts.length === 1 ? 'Produto' : 'Produtos'}
+                      {userProducts.length === 1 ? 'Produto' : 'Produtos'}
                     </Text>
                   </View>
                 </View>
@@ -129,7 +155,7 @@ import { MaterialIcons } from '@expo/vector-icons';
                   <MaterialIcons name="check-circle" size={20} color="#10B981" />
                   <View style={styles.productsStatText}>
                     <Text style={styles.productsStatValue}>
-                      {localProducts.filter(p => p.isActive).length}
+                      {userProducts.filter(p => p.isActive).length}
                     </Text>
                     <Text style={styles.productsStatLabel}>Ativos</Text>
                   </View>
@@ -139,89 +165,121 @@ import { MaterialIcons } from '@expo/vector-icons';
 
             {/* Lista de produtos */}
             <View style={styles.productsList}>
-              {localProducts.map((product, index) => (
-                <View key={product.id} style={styles.manageProductCard}>
-                  {/* Badge de status */}
-                  {product.isActive && (
-                    <View style={styles.productStatusBadge}>
-                      <MaterialIcons name="check-circle" size={12} color="#10B981" />
-                      <Text style={[styles.productStatusText, { marginLeft: 4 }]}>Ativo</Text>
-                    </View>
-                  )}
-                  
-                  <View style={styles.productCardContent}>
-                    <View style={styles.productCardLeft}>
-                      <View style={styles.productHeaderRow}>
-                        <Text style={styles.productCardName}>{product.name}</Text>
-                      </View>
+              {userProducts
+                .filter((product) => product && product.id)
+                .map((product, index) => {
+                  const categoryIcon = getCategoryIcon(product.category);
+                  return (
+                    <View key={product.id} style={styles.manageProductCard}>
+                      {/* Badge de status */}
+                      {product.isActive && (
+                        <View style={styles.productStatusBadge}>
+                          <MaterialIcons name="check-circle" size={12} color="#10B981" />
+                          <Text style={[styles.productStatusText, { marginLeft: 4 }]}>Ativo</Text>
+                        </View>
+                      )}
                       
-                      {product.category && (
-                        <View style={styles.productCategoryBadge}>
-                          <Text style={styles.productCategoryText}>{product.category}</Text>
+                      <View style={styles.productCardContent}>
+                        {/* Imagem do produto (genérica por enquanto) */}
+                        <View style={{
+                          width: 80,
+                          height: 80,
+                          backgroundColor: '#1E293B',
+                          borderRadius: 8,
+                          marginRight: 12,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: '#334155',
+                        }}>
+                          {product.imageUrl ? (
+                            <Image 
+                              source={{ uri: String(product.imageUrl) }} 
+                              style={{ width: '100%', height: '100%', borderRadius: 8 }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <MaterialIcons 
+                              name={categoryIcon as any} 
+                              size={40} 
+                              color="#5C8FFC" 
+                            />
+                          )}
                         </View>
-                      )}
 
-                      <View style={styles.productPriceRow}>
-                        <Text style={styles.productCardPrice}>
-                          R$ {product.price.toFixed(2).replace('.', ',')}
-                        </Text>
-                        {product.originalPrice && product.originalPrice > product.price && (
-                          <View style={styles.productDiscountContainer}>
-                            <Text style={styles.productCardOriginalPrice}>
-                              R$ {product.originalPrice.toFixed(2).replace('.', ',')}
-                            </Text>
-                            <View style={{ marginLeft: 8 }}>
-                              <View style={styles.productDiscountBadge}>
-                                <Text style={styles.productDiscountText}>
-                                  {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
-                                </Text>
-                              </View>
-                            </View>
+                        <View style={styles.productCardLeft}>
+                          <View style={styles.productHeaderRow}>
+                            <Text style={styles.productCardName}>{product.name || 'Produto sem nome'}</Text>
                           </View>
-                        )}
+                          
+                          {product.category && (
+                            <View style={styles.productCategoryBadge}>
+                              <Text style={styles.productCategoryText}>{String(product.category)}</Text>
+                            </View>
+                          )}
+
+                          <View style={styles.productPriceRow}>
+                            <Text style={styles.productCardPrice}>
+                              R$ {typeof product.price === 'number' ? product.price.toFixed(2).replace('.', ',') : '0,00'}
+                            </Text>
+                            {product.originalPrice && typeof product.originalPrice === 'number' && product.originalPrice > product.price && (
+                              <View style={styles.productDiscountContainer}>
+                                <Text style={styles.productCardOriginalPrice}>
+                                  R$ {product.originalPrice.toFixed(2).replace('.', ',')}
+                                </Text>
+                                <View style={{ marginLeft: 8 }}>
+                                  <View style={styles.productDiscountBadge}>
+                                    <Text style={styles.productDiscountText}>
+                                      {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+
+                          {product.stock !== undefined && product.stock !== null && (
+                            <View style={styles.productStockRow}>
+                              <MaterialIcons name="inventory-2" size={14} color="#9CA3AF" />
+                              <Text style={[styles.productCardStock, { marginLeft: 6 }]}>
+                                {String(product.stock)} {product.stock === 1 ? 'unidade' : 'unidades'} em estoque
+                              </Text>
+                            </View>
+                          )}
+
+                          {product.rating && typeof product.rating === 'number' && (
+                            <View style={styles.productRatingRow}>
+                              <MaterialIcons name="star" size={14} color="#FBBF24" />
+                              <Text style={[styles.productRatingText, { marginLeft: 4 }]}>
+                                {product.rating.toFixed(1)} ({String(product.reviewsCount || 0)} avaliações)
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        <View style={styles.productCardRight}>
+                          <TouchableOpacity
+                            style={[styles.productActionButton, styles.productEditButton, { marginBottom: 8 }]}
+                            onPress={() => {
+                              setEditingProduct(product);
+                              setProfileSubScreen('add-product');
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialIcons name="edit" size={18} color="#5C8FFC" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.productActionButton, styles.productDeleteButton]}
+                            onPress={() => product.id && handleDeleteProduct(product.id)}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialIcons name="delete" size={18} color="white" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-
-                      {product.stock !== undefined && (
-                        <View style={styles.productStockRow}>
-                          <MaterialIcons name="inventory-2" size={14} color="#9CA3AF" />
-                          <Text style={[styles.productCardStock, { marginLeft: 6 }]}>
-                            {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'} em estoque
-                          </Text>
-                        </View>
-                      )}
-
-                      {product.rating && (
-                        <View style={styles.productRatingRow}>
-                          <MaterialIcons name="star" size={14} color="#FBBF24" />
-                          <Text style={[styles.productRatingText, { marginLeft: 4 }]}>
-                            {product.rating.toFixed(1)} ({product.reviewsCount || 0} avaliações)
-                          </Text>
-                        </View>
-                      )}
                     </View>
-                    
-                    <View style={styles.productCardRight}>
-                      <TouchableOpacity
-                        style={[styles.productActionButton, styles.productEditButton, { marginBottom: 8 }]}
-                        onPress={() => {
-                          setEditingProduct(product);
-                          setProfileSubScreen('add-product');
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons name="edit" size={18} color="#5C8FFC" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.productActionButton, styles.productDeleteButton]}
-                        onPress={() => product.id && handleDeleteProduct(product.id)}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons name="delete" size={18} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ))}
+                  );
+                })}
             </View>
           </>
         )}
