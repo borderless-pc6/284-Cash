@@ -2,13 +2,48 @@ import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { getProductsByStore } from '../../utils/productService';
+import { FirestoreProductData } from '../../utils/productService';
+import styles from '../../styles/appStyles';
 
-// TODO: Adicionar imports específicos necessários
-// TODO: Adicionar props interface
-// TODO: Adicionar tipos necessários
+interface StoreDetailScreenProps {
+  selectedStore: any;
+  setCurrentScreen: (screen: string) => void;
+  setStoreSubScreen: (screen: string | null) => void;
+  setSelectedProduct: (product: any) => void;
+}
 
-  const StoreDetailScreen = () => {
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+const StoreDetailScreen: React.FC<StoreDetailScreenProps> = ({
+  selectedStore,
+  setCurrentScreen,
+  setStoreSubScreen,
+  setSelectedProduct,
+}) => {
+  const [storeProducts, setStoreProducts] = useState<FirestoreProductData[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  // Carregar produtos da loja
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (!selectedStore?.id) {
+        setStoreProducts([]);
+        return;
+      }
+
+      try {
+        setIsLoadingProducts(true);
+        const products = await getProductsByStore(selectedStore.id, false); // Apenas produtos ativos
+        setStoreProducts(products || []);
+      } catch (error) {
+        console.error('Erro ao carregar produtos da loja:', error);
+        setStoreProducts([]);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+
+    loadProducts();
+  }, [selectedStore?.id]);
 
   const formatPrice = (price: number) => {
     return `R$ ${price.toFixed(2).replace('.', ',')}`;
@@ -75,25 +110,29 @@ import { MaterialIcons } from '@expo/vector-icons';
         <View style={styles.storeInfoSection}>
           <Text style={styles.storeDetailName}>{selectedStore.name}</Text>
           <Text style={styles.storeDetailCategory}>{selectedStore.category}</Text>
-          <Text style={styles.storeDetailDescription}>{selectedStore.description}</Text>
+          {selectedStore.description && (
+            <Text style={styles.storeDetailDescription}>{selectedStore.description}</Text>
+          )}
 
           {/* Store Details */}
           <View style={styles.storeDetailItems}>
-            <View style={styles.storeDetailItem}>
-              <MaterialIcons name="place" size={18} color="white" />
-              <Text style={styles.storeDetailItemText}>{selectedStore.address}</Text>
-            </View>
-            <View style={styles.storeDetailItem}>
-              <MaterialIcons name="phone" size={18} color="white" />
-              <Text style={styles.storeDetailItemText}>{selectedStore.phone}</Text>
-            </View>
-            <View style={styles.storeDetailItem}>
-              <MaterialIcons name="access-time" size={18} color="white" />
-              <Text style={styles.storeDetailItemText}>{selectedStore.hours}</Text>
-            </View>
+            {selectedStore.address && (
+              <View style={styles.storeDetailItem}>
+                <MaterialIcons name="place" size={18} color="white" />
+                <Text style={styles.storeDetailItemText}>{selectedStore.address}</Text>
+              </View>
+            )}
+            {selectedStore.phone && (
+              <View style={styles.storeDetailItem}>
+                <MaterialIcons name="phone" size={18} color="white" />
+                <Text style={styles.storeDetailItemText}>{selectedStore.phone}</Text>
+              </View>
+            )}
             <View style={styles.storeDetailItem}>
               <MaterialIcons name="star" size={18} color="white" />
-              <Text style={styles.storeDetailItemText}>{selectedStore.rating} ({selectedStore.distance})</Text>
+              <Text style={styles.storeDetailItemText}>
+                {selectedStore.rating} {selectedStore.distance && `(${selectedStore.distance})`}
+              </Text>
             </View>
           </View>
         </View>
@@ -126,33 +165,59 @@ import { MaterialIcons } from '@expo/vector-icons';
             </TouchableOpacity>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {selectedStore.products.slice(0, 3).map((product: any) => (
-              <TouchableOpacity
-                key={product.id}
-                style={styles.productPreviewCard}
-                onPress={() => {
-                  console.log('Produto selecionado (preview):', product);
-                  setSelectedProduct(product);
-                  setStoreSubScreen('product-detail');
-                }}
-              >
-                <Image source={{ uri: product.image }} style={styles.productPreviewImage} />
-                <Text style={styles.productPreviewName}>{product.name}</Text>
-                <View style={styles.productPreviewPrice}>
-                  <Text style={styles.productPreviewCurrentPrice}>{formatPrice(product.price)}</Text>
-                  <Text style={styles.productPreviewOriginalPrice}>{formatPrice(product.originalPrice)}</Text>
-                </View>
-                <View style={styles.productPreviewRating}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialIcons name="star" size={14} color="#FFD700" />
-                    <Text style={styles.productPreviewRatingText}> {product.rating}</Text>
-                  </View>
-                  <Text style={styles.productPreviewReviewsText}>({product.reviews})</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {isLoadingProducts ? (
+            <Text style={{ color: '#9CA3AF', textAlign: 'center', padding: 20 }}>
+              Carregando produtos...
+            </Text>
+          ) : storeProducts.length === 0 ? (
+            <Text style={{ color: '#9CA3AF', textAlign: 'center', padding: 20 }}>
+              Nenhum produto disponível
+            </Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {storeProducts
+                .filter((product) => product && product.id)
+                .slice(0, 3)
+                .map((product, index) => (
+                  <TouchableOpacity
+                    key={product.id || `product-${index}`}
+                    style={styles.productPreviewCard}
+                    onPress={() => {
+                      console.log('Produto selecionado (preview):', product);
+                      setSelectedProduct(product);
+                      setStoreSubScreen('product-detail');
+                    }}
+                  >
+                    <Image 
+                      source={{ uri: product.imageUrl || 'https://via.placeholder.com/150' }} 
+                      style={styles.productPreviewImage} 
+                    />
+                    <Text style={styles.productPreviewName}>{product.name || 'Produto sem nome'}</Text>
+                    <View style={styles.productPreviewPrice}>
+                      <Text style={styles.productPreviewCurrentPrice}>
+                        {formatPrice(typeof product.price === 'number' ? product.price : 0)}
+                      </Text>
+                      {product.originalPrice && typeof product.originalPrice === 'number' && typeof product.price === 'number' && product.originalPrice > product.price && (
+                        <Text style={styles.productPreviewOriginalPrice}>
+                          {formatPrice(product.originalPrice)}
+                        </Text>
+                      )}
+                    </View>
+                    {product.rating && typeof product.rating === 'number' && (
+                      <View style={styles.productPreviewRating}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <MaterialIcons name="star" size={14} color="#FFD700" />
+                          <Text style={styles.productPreviewRatingText}> {product.rating.toFixed(1)}</Text>
+                        </View>
+                        {product.reviewsCount && typeof product.reviewsCount === 'number' && (
+                          <Text style={styles.productPreviewReviewsText}>({product.reviewsCount})</Text>
+                        )}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
     </View>

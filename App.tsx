@@ -25,6 +25,7 @@ import {
   getStoresByOwner,
   createStore,
   updateStore,
+  getAllActiveStores,
   FirestoreStoreData
 } from './src/utils/storeService';
 import {
@@ -58,6 +59,7 @@ import VouchersScreen from './src/components/screens/VouchersScreen';
 import WalletScreen from './src/components/screens/WalletScreen';
 import PromotionsScreen from './src/components/screens/PromotionsScreen';
 import MyPurchasesScreen from './src/components/screens/MyPurchasesScreen';
+import CategoryStoresScreen from './src/components/screens/CategoryStoresScreen';
 import ManageStoreScreen from './src/components/profile/ManageStoreScreen';
 import ManageProductsScreen from './src/components/profile/ManageProductsScreen';
 import AddEditProductScreen from './src/components/profile/AddEditProductScreen';
@@ -87,6 +89,7 @@ export default function App() {
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [storeSubScreen, setStoreSubScreen] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{ name: string; icon: string } | null>(null);
 
   // Estados para gerenciamento de loja e produtos
   const [userStore, setUserStore] = useState<FirestoreStoreData | null>(null);
@@ -94,6 +97,19 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<FirestoreProductData | null>(null);
   const [isLoadingStore, setIsLoadingStore] = useState(false);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  
+  // Estado para lojas em destaque (reais do Firestore)
+  const [featuredStores, setFeaturedStores] = useState<Array<{
+    id: string | number;
+    name: string;
+    category: string;
+    image: string;
+    badge: string;
+    badgeColor: string;
+    cashback: string;
+    distance: string;
+    rating: string | number;
+  }>>([]);
 
   // Estados para autenticação
   const [loginEmail, setLoginEmail] = useState('');
@@ -374,6 +390,15 @@ export default function App() {
     }
   }, [authState.isLoggedIn, authState.user?.id, loadUserStore]);
 
+  // Carregar lojas em destaque quando o usuário estiver logado
+  useEffect(() => {
+    if (authState.isLoggedIn) {
+      loadFeaturedStores();
+    } else {
+      setFeaturedStores([]);
+    }
+  }, [authState.isLoggedIn, loadFeaturedStores]);
+
   const handleBackToRegister = useCallback(() => {
     setAuthState({ ...authState, authScreen: 'register' });
   }, [authState]);
@@ -431,6 +456,80 @@ export default function App() {
       setIsLoadingProducts(false);
     }
   }, [userStore?.id]);
+
+  // Função para carregar lojas em destaque (reais do Firestore)
+  const loadFeaturedStores = useCallback(async () => {
+    try {
+      const stores = await getAllActiveStores();
+      
+      // Transformar dados do Firestore no formato esperado pelo HomeScreen
+      const formattedStores = stores.slice(0, 10).map((store, index) => {
+        // Determinar badge baseado na posição ou dados da loja
+        let badge = 'Loja Premium';
+        let badgeColor = '#5C8FFC';
+        
+        if (index === 0) {
+          badge = 'Top da Cidade';
+          badgeColor = '#5C8FFC';
+        } else if (index === 1) {
+          badge = 'Loja Premium';
+          badgeColor = '#10B981';
+        } else if (index === 2) {
+          badge = 'Loja do Mês';
+          badgeColor = '#F59E0B';
+        }
+
+        // Calcular cashback padrão (pode ser ajustado depois)
+        const cashbackPercent = 10 + (index % 5); // Varia entre 10% e 14%
+        
+        // Usar imagem da loja ou imagem padrão baseada na categoria
+        let imageUrl = store.imageUrl;
+        if (!imageUrl) {
+          // Imagens padrão baseadas na categoria
+          const categoryImages: { [key: string]: string } = {
+            'Vestuário': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=200&fit=crop',
+            'Eletrônicos': 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop',
+            'Alimentação': 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=400&h=200&fit=crop',
+            'Farmácia': 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=400&h=200&fit=crop',
+            'Beleza': 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=400&h=200&fit=crop',
+            'Pet Shop': 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&h=200&fit=crop',
+            'Academia': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=200&fit=crop',
+          };
+          imageUrl = categoryImages[store.category || ''] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=200&fit=crop';
+        }
+
+        // Calcular rating médio (por enquanto usar valor padrão, pode ser calculado depois com base em avaliações)
+        const rating = 4.5 + (index % 5) * 0.1; // Varia entre 4.5 e 4.9
+        
+        // Distância simulada (pode ser calculada depois com base na localização real)
+        const distances = ['0.5 km', '1.2 km', '0.8 km', '2.1 km', '1.5 km', '3.0 km', '0.9 km', '1.8 km'];
+        const distance = distances[index % distances.length];
+
+        return {
+          id: store.id || String(index), // Preservar ID do Firestore
+          name: store.name || 'Loja sem nome',
+          category: store.category || 'Geral',
+          image: imageUrl,
+          badge: badge,
+          badgeColor: badgeColor,
+          cashback: `${cashbackPercent}%`,
+          distance: distance,
+          rating: rating.toFixed(1),
+          // Preservar dados originais do Firestore para uso no StoreDetailScreen
+          address: store.address,
+          phone: store.phone,
+          email: store.email,
+          description: store.description,
+        };
+      });
+
+      setFeaturedStores(formattedStores);
+      console.log('Lojas em destaque carregadas:', formattedStores.length);
+    } catch (error) {
+      console.error('Erro ao carregar lojas em destaque:', error);
+      setFeaturedStores([]);
+    }
+  }, []);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -852,149 +951,8 @@ export default function App() {
     },
   ];
 
-  const featuredStores = [
-    {
-      id: 1,
-      name: 'Boutique Elegance',
-      category: 'Vestuário',
-      distance: '0.5 km',
-      rating: 4.8,
-      cashback: '15%',
-      badge: 'Top da Cidade',
-      badgeColor: '#5C8FFC',
-      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=200&fit=crop',
-      description: 'Loja especializada em roupas elegantes e modernas para todas as ocasiões.',
-      address: 'Rua das Flores, 123 - Centro',
-      phone: '(11) 99999-9999',
-      hours: 'Seg-Sex: 9h-18h | Sáb: 9h-16h',
-      products: [
-        {
-          id: 1,
-          name: 'Vestido Elegante',
-          price: 299.90,
-          originalPrice: 399.90,
-          image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300&h=300&fit=crop',
-          category: 'Vestidos',
-          rating: 4.9,
-          reviews: 127,
-        },
-        {
-          id: 2,
-          name: 'Blusa Premium',
-          price: 149.90,
-          originalPrice: 199.90,
-          image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=300&h=300&fit=crop',
-          category: 'Blusas',
-          rating: 4.7,
-          reviews: 89,
-        },
-        {
-          id: 3,
-          name: 'Calça Social',
-          price: 199.90,
-          originalPrice: 279.90,
-          image: 'https://images.unsplash.com/photo-1506629905607-0b2b4b0b0b0b?w=300&h=300&fit=crop',
-          category: 'Calças',
-          rating: 4.8,
-          reviews: 156,
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: 'TechWorld',
-      category: 'Eletrônicos',
-      distance: '1.2 km',
-      rating: 4.9,
-      cashback: '10%',
-      badge: 'Loja Premium',
-      badgeColor: '#5C8FFC',
-      image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop',
-      description: 'A melhor loja de eletrônicos com os últimos lançamentos em tecnologia.',
-      address: 'Av. Paulista, 1000 - Bela Vista',
-      phone: '(11) 88888-8888',
-      hours: 'Seg-Sex: 8h-20h | Sáb-Dom: 9h-18h',
-      products: [
-        {
-          id: 4,
-          name: 'iPhone 15 Pro',
-          price: 8999.00,
-          originalPrice: 9999.00,
-          image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=300&h=300&fit=crop',
-          category: 'Smartphones',
-          rating: 4.9,
-          reviews: 234,
-        },
-        {
-          id: 5,
-          name: 'MacBook Air M2',
-          price: 7999.00,
-          originalPrice: 8999.00,
-          image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop',
-          category: 'Notebooks',
-          rating: 4.8,
-          reviews: 189,
-        },
-        {
-          id: 6,
-          name: 'AirPods Pro',
-          price: 1299.00,
-          originalPrice: 1499.00,
-          image: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=300&h=300&fit=crop',
-          category: 'Acessórios',
-          rating: 4.7,
-          reviews: 312,
-        },
-      ],
-    },
-    {
-      id: 3,
-      name: 'Farmácia Central',
-      category: 'Farmácia',
-      distance: '0.8 km',
-      rating: 4.7,
-      cashback: '8%',
-      badge: 'Loja do Mês',
-      badgeColor: '#5C8FFC',
-      image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=400&h=200&fit=crop',
-      description: 'Farmácia completa com medicamentos e produtos de saúde e beleza.',
-      address: 'Rua da Saúde, 456 - Centro',
-      phone: '(11) 77777-7777',
-      hours: 'Seg-Dom: 24h',
-      products: [
-        {
-          id: 7,
-          name: 'Vitamina D3',
-          price: 45.90,
-          originalPrice: 59.90,
-          image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=300&fit=crop',
-          category: 'Vitaminas',
-          rating: 4.6,
-          reviews: 78,
-        },
-        {
-          id: 8,
-          name: 'Protetor Solar FPS 60',
-          price: 29.90,
-          originalPrice: 39.90,
-          image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=300&h=300&fit=crop',
-          category: 'Cosméticos',
-          rating: 4.8,
-          reviews: 145,
-        },
-        {
-          id: 9,
-          name: 'Termômetro Digital',
-          price: 35.90,
-          originalPrice: 49.90,
-          image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=300&fit=crop',
-          category: 'Equipamentos',
-          rating: 4.5,
-          reviews: 92,
-        },
-      ],
-    },
-  ];
+  // Dados mockados removidos - agora usando lojas reais do Firestore
+  // const featuredStores = [ ... dados mockados removidos ... ];
 
   // Componente da Tela de Detalhes da Loja
   if (!authState.isLoggedIn) {
@@ -1158,6 +1116,34 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'category-stores') {
+    if (!selectedCategory) {
+      // Se não houver categoria selecionada, voltar para home
+      return (
+        <HomeScreen
+          searchText={searchText}
+          setSearchText={setSearchText}
+          setCurrentScreen={setCurrentScreen}
+          handleLogout={handleLogout}
+          categories={categories}
+          featuredStores={featuredStores}
+          bottomNavItems={bottomNavItems}
+          setSelectedStore={setSelectedStore}
+          setSelectedCategory={setSelectedCategory}
+        />
+      );
+    }
+    return (
+      <CategoryStoresScreen
+        categoryName={selectedCategory.name}
+        categoryIcon={selectedCategory.icon}
+        setCurrentScreen={setCurrentScreen}
+        setSelectedStore={setSelectedStore}
+        bottomNavItems={bottomNavItems}
+      />
+    );
+  }
+
   if (currentScreen === 'store-detail') {
     console.log('Renderizando store-detail, storeSubScreen:', storeSubScreen);
     console.log('selectedProduct:', selectedProduct);
@@ -1172,7 +1158,14 @@ export default function App() {
     if (storeSubScreen === 'checkout') {
       return <CheckoutScreen />;
     }
-    return <StoreDetailScreen />;
+    return (
+      <StoreDetailScreen
+        selectedStore={selectedStore}
+        setCurrentScreen={setCurrentScreen}
+        setStoreSubScreen={setStoreSubScreen}
+        setSelectedProduct={setSelectedProduct}
+      />
+    );
   }
 
   return (
@@ -1184,6 +1177,8 @@ export default function App() {
       categories={categories}
       featuredStores={featuredStores}
       bottomNavItems={bottomNavItems}
+      setSelectedStore={setSelectedStore}
+      setSelectedCategory={setSelectedCategory}
     />
   );
 }

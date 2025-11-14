@@ -172,7 +172,7 @@ const ManageProductsScreen: React.FC<ManageProductsScreenProps> = ({
                   return (
                     <View key={product.id} style={styles.manageProductCard}>
                       {/* Badge de status */}
-                      {product.isActive && (
+                      {Boolean(product.isActive) && (
                         <View style={styles.productStatusBadge}>
                           <MaterialIcons name="check-circle" size={12} color="#10B981" />
                           <Text style={[styles.productStatusText, { marginLeft: 4 }]}>Ativo</Text>
@@ -212,7 +212,7 @@ const ManageProductsScreen: React.FC<ManageProductsScreenProps> = ({
                             <Text style={styles.productCardName}>{product.name || 'Produto sem nome'}</Text>
                           </View>
                           
-                          {product.category && (
+                          {Boolean(product.category) && (
                             <View style={styles.productCategoryBadge}>
                               <Text style={styles.productCategoryText}>{String(product.category)}</Text>
                             </View>
@@ -247,7 +247,7 @@ const ManageProductsScreen: React.FC<ManageProductsScreenProps> = ({
                             </View>
                           )}
 
-                          {product.rating && typeof product.rating === 'number' && (
+                          {typeof product.rating === 'number' && product.rating > 0 && (
                             <View style={styles.productRatingRow}>
                               <MaterialIcons name="star" size={14} color="#FBBF24" />
                               <Text style={[styles.productRatingText, { marginLeft: 4 }]}>

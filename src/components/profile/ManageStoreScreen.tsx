@@ -1,10 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthState } from '../../types';
 import { FirestoreStoreData, createStore, updateStore } from '../../utils/storeService';
 import styles from '../../styles/appStyles';
+
+// Categorias disponíveis no sistema
+const AVAILABLE_CATEGORIES = [
+  'Vestuário',
+  'Alimentação',
+  'Eletrônicos',
+  'Farmácia',
+  'Beleza',
+  'Pet Shop',
+  'Academia',
+];
 
 interface ManageStoreScreenProps {
   authState: AuthState;
@@ -27,6 +38,7 @@ const ManageStoreScreen: React.FC<ManageStoreScreenProps> = ({
   const [storeEmail, setStoreEmail] = useState('');
   const [storeDescription, setStoreDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // Atualizar campos quando userStore for carregado
   useEffect(() => {
@@ -171,13 +183,93 @@ const ManageStoreScreen: React.FC<ManageStoreScreenProps> = ({
 
           <View style={styles.formGroup}>
             <Text style={styles.formLabel}>Categoria</Text>
-            <TextInput
+            <TouchableOpacity
               style={styles.formInput}
-              value={storeCategory}
-              onChangeText={setStoreCategory}
-              placeholder="Ex: Eletrônicos, Roupas, Alimentos..."
-              placeholderTextColor="#6B7280"
-            />
+              onPress={() => setShowCategoryModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: storeCategory ? '#FFFFFF' : '#6B7280', fontSize: 16 }}>
+                  {storeCategory || 'Selecione uma categoria'}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#6B7280" />
+              </View>
+            </TouchableOpacity>
+            <Modal
+              visible={showCategoryModal}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowCategoryModal(false)}
+            >
+              <View style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'flex-end',
+              }}>
+                <View style={{
+                  backgroundColor: '#1E293B',
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  padding: 20,
+                  maxHeight: '70%',
+                }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 20,
+                  }}>
+                    <Text style={{
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                      color: '#FFFFFF',
+                    }}>
+                      Selecione uma categoria
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                      <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView>
+                    <TouchableOpacity
+                      style={{
+                        padding: 15,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#334155',
+                      }}
+                      onPress={() => {
+                        setStoreCategory('');
+                        setShowCategoryModal(false);
+                      }}
+                    >
+                      <Text style={{ color: '#9CA3AF', fontSize: 16 }}>Nenhuma</Text>
+                    </TouchableOpacity>
+                    {AVAILABLE_CATEGORIES.map((category) => (
+                      <TouchableOpacity
+                        key={category}
+                        style={{
+                          padding: 15,
+                          borderBottomWidth: 1,
+                          borderBottomColor: '#334155',
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                        onPress={() => {
+                          setStoreCategory(category);
+                          setShowCategoryModal(false);
+                        }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 16 }}>{category}</Text>
+                        {storeCategory === category && (
+                          <MaterialIcons name="check" size={20} color="#5C8FFC" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
           </View>
 
           <View style={styles.formGroup}>

@@ -195,7 +195,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </View>
                 <View style={styles.merchantStatCard}>
                   <MaterialIcons name="shopping-cart" size={24} color="#DC2626" />
-                  <Text style={styles.merchantStatValue}>{stats.pendingOrders}</Text>
+                  <Text style={styles.merchantStatValue}>{stats.totalOrders}</Text>
                   <Text style={styles.merchantStatLabel}>Pedidos</Text>
                 </View>
               </View>

@@ -27,6 +27,8 @@ export interface HomeScreenProps {
     screen: string;
     active: boolean;
   }>;
+  setSelectedStore: (store: any) => void;
+  setSelectedCategory: (category: { name: string; icon: string } | null) => void;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -37,7 +39,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   categories,
   featuredStores,
   bottomNavItems,
+  setSelectedStore,
+  setSelectedCategory,
 }) => {
+  const handleCategoryPress = (category: { name: string; icon: string }) => {
+    if (category.name === 'Mais') {
+      // Se for "Mais", não fazer nada
+      return;
+    }
+    // Navegar para a tela de categoria
+    setSelectedCategory(category);
+    setCurrentScreen('category-stores');
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -82,9 +96,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.sectionTitle}>Categorias</Text>
           <View style={styles.categoriesGrid}>
             {categories.map((category, index) => (
-              <TouchableOpacity key={index} style={styles.categoryItem}>
-                <MaterialIcons name={category.icon as any} size={24} color="white" />
-                <Text style={styles.categoryName}>{category.name}</Text>
+              <TouchableOpacity
+                key={index}
+                style={styles.categoryItem}
+                onPress={() => handleCategoryPress(category)}
+              >
+                <MaterialIcons 
+                  name={category.icon as any} 
+                  size={24} 
+                  color="white" 
+                />
+                <Text style={styles.categoryName}>
+                  {category.name}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -137,7 +161,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               key={store.id}
               style={styles.storeCard}
               onPress={() => {
-                // setSelectedStore será passado via props
+                setSelectedStore(store);
                 setCurrentScreen('store-detail');
               }}
             >
